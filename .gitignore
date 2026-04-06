@@ -2,6 +2,7 @@
 
 # compiled output
 dist
+*.egg-info/
 tmp
 out-tsc
 *.tsbuildinfo

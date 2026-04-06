@@ -8,7 +8,7 @@ import {
 import { BrandLogo } from "../components/BrandLogo";
 
 const TERMINAL_LINES = [
-  { delay: 0,    text: "$ pip install agentwatch",              color: "text-white/60" },
+  { delay: 0,    text: "$ pip install agentwatch-io",            color: "text-white/60" },
   { delay: 800,  text: "Successfully installed agentwatch-1.0.0", color: "text-emerald-400/80" },
   { delay: 1400, text: "",                                       color: "" },
   { delay: 1600, text: "import agentwatch",                      color: "text-purple-400" },

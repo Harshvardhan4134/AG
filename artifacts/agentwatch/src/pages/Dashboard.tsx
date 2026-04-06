@@ -294,7 +294,10 @@ agentwatch.init(
             {initCode}
           </div>
           <p className="text-white/25 text-xs mt-3">
-            Install: <span className="text-white/40 font-mono">pip install -e ./agentwatch-sdk</span>
+            Install: <span className="text-white/40 font-mono">pip install agentwatch-io</span>{" "}
+            <span className="text-white/20">(or </span>
+            <span className="text-white/35 font-mono">pip install -e ./agentwatch-sdk</span>
+            <span className="text-white/20"> from the repo)</span>
           </p>
         </div>
       </motion.div>

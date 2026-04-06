@@ -5,9 +5,16 @@ Production monitoring for AI agents: **rule-based checks** on every trace, optio
 ## Install
 
 ```bash
-pip install -e ./agentwatch-sdk
-# or: pip install agentwatch   # when published
+pip install agentwatch-io
 ```
+
+From a clone of this repo (editable / dev):
+
+```bash
+pip install -e ./agentwatch-sdk
+```
+
+Import name is always `agentwatch` after either install.
 
 ## Quick start
 

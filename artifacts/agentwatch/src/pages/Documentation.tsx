@@ -145,8 +145,11 @@ export default function Documentation() {
               <Code2 className="w-5 h-5 text-red-500" />
               Install
             </h2>
-            <p className="mb-3 text-white/60 text-sm">From your repo root (or publish to PyPI later):</p>
-            <Code>{`cd agentwatch-sdk
+            <p className="mb-3 text-white/60 text-sm">From PyPI, or from a clone for local development:</p>
+            <Code>{`pip install agentwatch-io
+
+# Or editable from repo:
+cd agentwatch-sdk
 pip install -e .
 
 # Dependencies: requests (HTTP to AgentWatch API)`}</Code>
