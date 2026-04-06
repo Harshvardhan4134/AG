@@ -8,71 +8,79 @@ import { useAuth } from "../lib/auth-context";
 
 const navItems = [
   { icon: <LayoutDashboard className="w-4 h-4" />, label: "Dashboard", path: "/dashboard" },
-  { icon: <Activity className="w-4 h-4" />, label: "Traces", path: "/dashboard/traces" },
-  { icon: <Bell className="w-4 h-4" />, label: "Alerts", path: "/dashboard/alerts" },
-  { icon: <Key className="w-4 h-4" />, label: "API Keys", path: "/dashboard/keys" },
-  { icon: <Settings className="w-4 h-4" />, label: "Settings", path: "/dashboard/settings" },
+  { icon: <Activity className="w-4 h-4" />,        label: "Traces",    path: "/dashboard/traces" },
+  { icon: <Bell className="w-4 h-4" />,            label: "Alerts",    path: "/dashboard/alerts" },
+  { icon: <Key className="w-4 h-4" />,             label: "API Keys",  path: "/dashboard/keys" },
+  { icon: <Settings className="w-4 h-4" />,        label: "Settings",  path: "/dashboard/settings" },
 ];
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   const [, navigate] = useLocation();
   const { user, logout, isDemoMode } = useAuth();
+  const initial = user?.email?.charAt(0).toUpperCase() || "U";
 
   return (
     <div className="min-h-screen bg-[#060606] flex">
       {/* Sidebar */}
       <motion.aside
-        initial={{ x: -20, opacity: 0 }}
+        initial={{ x: -24, opacity: 0 }}
         animate={{ x: 0, opacity: 1 }}
-        transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-        className="w-56 flex-shrink-0 bg-[#080808] border-r border-white/6 flex flex-col fixed h-full z-20"
+        transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
+        className="w-56 flex-shrink-0 flex flex-col fixed h-full z-20 border-r border-white/[0.06]"
+        style={{ background: "linear-gradient(180deg, #090909 0%, #070707 100%)" }}
       >
+        {/* Top glow accent */}
+        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-red-600/40 to-transparent" />
+
         {/* Logo */}
-        <div className="px-5 py-5 border-b border-white/5">
+        <div className="px-5 py-5 border-b border-white/[0.05]">
           <button
             onClick={() => navigate("/dashboard")}
-            className="flex items-center gap-2.5 group"
+            className="flex items-center gap-2.5 group w-full"
           >
-            <div className="w-7 h-7 rounded-lg bg-red-600 flex items-center justify-center group-hover:bg-red-500 transition-colors glow-red">
+            <div className="w-7 h-7 rounded-lg bg-red-600 flex items-center justify-center glow-red group-hover:bg-red-500 transition-all group-hover:scale-105">
               <Shield className="w-4 h-4 text-white" />
             </div>
-            <div>
+            <div className="flex-1">
               <div className="text-sm font-black text-white leading-none">AgentWatch</div>
-              <div className="text-[9px] text-red-500/70 font-mono mt-0.5">v1.0.0</div>
+              <div className="text-[9px] text-red-500/60 font-mono mt-0.5 tracking-wider">v1.0.0 · BETA</div>
             </div>
           </button>
         </div>
 
         {/* Status badge */}
-        <div className="px-5 py-3 border-b border-white/5">
+        <div className="px-4 py-3 border-b border-white/[0.04]">
           {isDemoMode ? (
-            <div className="flex items-center gap-2 bg-amber-500/8 border border-amber-500/15 rounded-lg px-3 py-2">
+            <div className="flex items-center gap-2 bg-amber-500/[0.08] border border-amber-500/[0.15] rounded-lg px-3 py-2">
               <div className="w-1.5 h-1.5 bg-amber-500 rounded-full" />
               <span className="text-amber-400/80 text-[10px] font-mono font-medium">Demo Mode</span>
             </div>
           ) : (
-            <div className="flex items-center gap-2 bg-emerald-500/8 border border-emerald-500/15 rounded-lg px-3 py-2">
+            <div className="flex items-center gap-2 bg-emerald-500/[0.07] border border-emerald-500/[0.15] rounded-lg px-3 py-2">
               <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
-              <span className="text-emerald-400 text-[10px] font-mono font-medium">All systems normal</span>
+              <span className="text-emerald-400/80 text-[10px] font-mono font-medium">All systems normal</span>
             </div>
           )}
         </div>
 
         {/* Nav */}
-        <nav className="flex-1 py-4 px-3 space-y-0.5">
+        <nav className="flex-1 py-3 px-3 space-y-0.5 overflow-y-auto">
           {navItems.map((item) => (
             <NavItem key={item.path} {...item} />
           ))}
         </nav>
 
-        {/* User */}
-        <div className="border-t border-white/5 p-4">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-8 h-8 rounded-full bg-red-600/20 border border-red-600/30 flex items-center justify-center text-red-400 text-xs font-bold flex-shrink-0">
-              {user?.email?.charAt(0).toUpperCase() || "U"}
+        {/* Bottom glow */}
+        <div className="absolute bottom-[100px] left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/[0.04] to-transparent" />
+
+        {/* User section */}
+        <div className="border-t border-white/[0.05] p-4">
+          <div className="flex items-center gap-3 mb-3 p-2 rounded-xl hover:bg-white/[0.03] transition-colors cursor-default">
+            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-red-600/40 to-red-900/40 border border-red-600/30 flex items-center justify-center text-red-300 text-xs font-black flex-shrink-0">
+              {initial}
             </div>
             <div className="flex-1 min-w-0">
-              <div className="text-white text-xs font-medium truncate">
+              <div className="text-white text-xs font-semibold truncate">
                 {user?.displayName || user?.email?.split("@")[0] || "User"}
               </div>
               <div className="text-white/30 text-[10px] truncate">{user?.email || "demo@agentwatch.io"}</div>
@@ -80,28 +88,28 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
           </div>
           <button
             onClick={() => { logout(); navigate("/"); }}
-            className="w-full flex items-center gap-2 text-white/40 hover:text-white/70 text-xs py-1.5 px-2 rounded-lg hover:bg-white/5 transition-all"
+            className="w-full flex items-center gap-2 text-white/35 hover:text-red-400 text-xs py-2 px-3 rounded-lg hover:bg-red-600/8 transition-all group"
           >
-            <LogOut className="w-3.5 h-3.5" />
+            <LogOut className="w-3.5 h-3.5 group-hover:scale-110 transition-transform" />
             Sign out
           </button>
         </div>
       </motion.aside>
 
-      {/* Main */}
+      {/* Main content */}
       <main className="flex-1 ml-56 min-h-screen">
         {/* Top bar */}
-        <div className="h-14 border-b border-white/5 bg-[#060606]/80 backdrop-blur-sm flex items-center px-8 sticky top-0 z-10">
-          <div className="flex items-center gap-2 text-xs text-white/30">
-            <Zap className="w-3.5 h-3.5 text-red-500" />
+        <div className="h-14 border-b border-white/[0.05] bg-[#060606]/90 backdrop-blur-md flex items-center px-8 sticky top-0 z-10">
+          <div className="flex items-center gap-2 text-xs text-white/25">
+            <Zap className="w-3.5 h-3.5 text-red-500/70" />
             <span className="font-mono">3 agents active</span>
-            <span className="text-white/10">·</span>
+            <span className="text-white/10 mx-1">·</span>
             <span>Monitoring in real-time</span>
           </div>
           <div className="ml-auto flex items-center gap-2">
             <button
               onClick={() => navigate("/dashboard/keys")}
-              className="flex items-center gap-1.5 bg-red-600/10 hover:bg-red-600/20 border border-red-600/20 text-red-400 text-xs px-3 py-1.5 rounded-lg font-mono transition-all"
+              className="flex items-center gap-1.5 bg-red-600/10 hover:bg-red-600/18 border border-red-600/20 hover:border-red-600/35 text-red-400 text-xs px-3 py-1.5 rounded-lg font-mono transition-all"
             >
               <Key className="w-3 h-3" />
               Get API Key
@@ -111,9 +119,9 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
 
         <div className="p-8">
           <motion.div
-            initial={{ opacity: 0, y: 10 }}
+            initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3 }}
+            transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
           >
             {children}
           </motion.div>
@@ -130,15 +138,20 @@ function NavItem({ icon, label, path }: { icon: ReactNode; label: string; path: 
   return (
     <button
       onClick={() => navigate(path)}
-      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
+      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all relative group ${
         isActive
-          ? "bg-red-600/15 text-red-400 border border-red-600/20"
-          : "text-white/40 hover:text-white/70 hover:bg-white/5"
+          ? "bg-red-600/12 text-red-400 border border-red-600/18 shadow-sm"
+          : "text-white/35 hover:text-white/65 hover:bg-white/[0.04] border border-transparent"
       }`}
     >
-      <span className={isActive ? "text-red-400" : "text-white/30"}>{icon}</span>
+      {isActive && (
+        <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-4 bg-red-500 rounded-full" />
+      )}
+      <span className={`transition-colors ${isActive ? "text-red-400" : "text-white/25 group-hover:text-white/50"}`}>
+        {icon}
+      </span>
       <span>{label}</span>
-      {isActive && <ChevronRight className="w-3 h-3 ml-auto text-red-500/50" />}
+      {isActive && <ChevronRight className="w-3 h-3 ml-auto text-red-500/40" />}
     </button>
   );
 }

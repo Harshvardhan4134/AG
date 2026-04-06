@@ -62,7 +62,6 @@
   --elevate-1: rgba(255,255,255, .04);
   --elevate-2: rgba(255,255,255, .09);
 
-  /* Dark red / black palette matching the reference design */
   --background: 0 0% 4%;
   --foreground: 0 0% 96%;
   --border: 0 0% 12%;
@@ -132,73 +131,143 @@
 ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: rgba(239,68,68,0.4); }
 
-/* Glow effects */
+/* ── Glow effects ── */
 .glow-red {
-  box-shadow: 0 0 20px rgba(239, 68, 68, 0.15), 0 0 40px rgba(239, 68, 68, 0.05);
+  box-shadow: 0 0 20px rgba(239, 68, 68, 0.2), 0 0 40px rgba(239, 68, 68, 0.07);
 }
 .glow-red-intense {
-  box-shadow: 0 0 30px rgba(239, 68, 68, 0.3), 0 0 60px rgba(239, 68, 68, 0.1);
+  box-shadow: 0 0 30px rgba(239, 68, 68, 0.35), 0 0 80px rgba(239, 68, 68, 0.12);
 }
 .text-glow-red {
-  text-shadow: 0 0 20px rgba(239, 68, 68, 0.5);
+  text-shadow: 0 0 30px rgba(239, 68, 68, 0.6), 0 0 60px rgba(239, 68, 68, 0.2);
 }
 
-/* Noise texture overlay */
-.noise-bg::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
-  pointer-events: none;
-  z-index: 0;
-  opacity: 0.4;
-}
-
-/* Grid lines background */
+/* ── Grid background ── */
 .grid-bg {
   background-image:
-    linear-gradient(rgba(239,68,68,0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(239,68,68,0.03) 1px, transparent 1px);
-  background-size: 40px 40px;
+    linear-gradient(rgba(239,68,68,0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(239,68,68,0.04) 1px, transparent 1px);
+  background-size: 48px 48px;
 }
 
-/* Gradient text */
+/* ── Gradient text ── */
 .gradient-text {
-  background: linear-gradient(135deg, #fff 0%, #ef4444 50%, #dc2626 100%);
+  background: linear-gradient(135deg, #fff 0%, #ef4444 55%, #dc2626 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
 
-/* Red gradient border */
-.red-border-glow {
-  border: 1px solid rgba(239,68,68,0.3);
-  box-shadow: 0 0 15px rgba(239,68,68,0.1), inset 0 0 15px rgba(239,68,68,0.03);
+.gradient-text-red {
+  background: linear-gradient(135deg, #f87171 0%, #ef4444 50%, #b91c1c 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
-/* Animated pulse ring */
+/* ── Animated gradient border ── */
+.gradient-border {
+  position: relative;
+}
+.gradient-border::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(135deg, rgba(239,68,68,0.5), rgba(239,68,68,0.1), rgba(239,68,68,0.4));
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+/* ── Red glow border ── */
+.red-border-glow {
+  border: 1px solid rgba(239,68,68,0.25);
+  box-shadow:
+    0 0 0 1px rgba(239,68,68,0.05),
+    0 0 20px rgba(239,68,68,0.12),
+    0 0 60px rgba(239,68,68,0.05),
+    inset 0 0 20px rgba(239,68,68,0.04);
+}
+
+/* ── Animated pulse ring ── */
 @keyframes pulse-ring {
-  0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
-  70% { transform: scale(1); box-shadow: 0 0 0 8px rgba(239, 68, 68, 0); }
+  0%   { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.5); }
+  70%  { transform: scale(1);    box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
   100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
 }
-.animate-pulse-ring { animation: pulse-ring 2s cubic-bezier(0.455, 0.03, 0.515, 0.955) infinite; }
+.animate-pulse-ring { animation: pulse-ring 2.5s cubic-bezier(0.455, 0.03, 0.515, 0.955) infinite; }
 
-/* Scanline effect */
+/* ── Floating animation ── */
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50%       { transform: translateY(-8px); }
+}
+.animate-float { animation: float 4s ease-in-out infinite; }
+.animate-float-slow { animation: float 6s ease-in-out infinite; }
+.animate-float-delay { animation: float 5s ease-in-out infinite 1.5s; }
+
+/* ── Typing cursor ── */
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0; }
+}
+.animate-blink { animation: blink 1s step-end infinite; }
+
+/* ── Shimmer effect ── */
+@keyframes shimmer {
+  0%   { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+.shimmer {
+  background: linear-gradient(90deg, transparent 25%, rgba(239,68,68,0.15) 50%, transparent 75%);
+  background-size: 200% 100%;
+  animation: shimmer 3s ease infinite;
+}
+
+/* ── Card hover ── */
+.card-hover {
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.card-hover:hover {
+  border-color: rgba(239,68,68,0.35) !important;
+  box-shadow: 0 0 25px rgba(239,68,68,0.1), 0 8px 30px rgba(0,0,0,0.4);
+  transform: translateY(-2px);
+}
+
+/* ── Scanline ── */
 @keyframes scanline {
-  0% { transform: translateY(-100%); }
+  0%   { transform: translateY(-100%); }
   100% { transform: translateY(100vh); }
 }
 
-/* Card hover */
-.card-hover {
-  transition: all 0.2s ease;
+/* ── Noise overlay ── */
+.noise-overlay::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.05'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 1;
+  opacity: 0.35;
 }
-.card-hover:hover {
-  border-color: rgba(239,68,68,0.3);
-  box-shadow: 0 0 20px rgba(239,68,68,0.08);
-  transform: translateY(-1px);
+
+/* ── Glow orb ── */
+.glow-orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  pointer-events: none;
 }
+
+/* ── Horizontal scroll marquee ── */
+@keyframes marquee {
+  0%   { transform: translateX(0%); }
+  100% { transform: translateX(-50%); }
+}
+.animate-marquee { animation: marquee 20s linear infinite; }
 
 @layer utilities {
   input[type="search"]::-webkit-search-cancel-button { @apply hidden; }
