@@ -2,6 +2,6 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "installCommand": "pnpm install --ignore-scripts",
   "buildCommand": "pnpm --filter @workspace/agentwatch build",
-  "outputDirectory": "artifacts/agentwatch/dist/public",
+  "outputDirectory": "artifacts/agentwatch/dist",
   "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
 }

@@ -19,7 +19,7 @@ run = "pnpm --filter @workspace/agentwatch run dev"
 
 [services.production]
 build = [ "pnpm", "--filter", "@workspace/agentwatch", "run", "build" ]
-publicDir = "artifacts/agentwatch/dist/public"
+publicDir = "artifacts/agentwatch/dist"
 serve = "static"
 
 [[services.production.rewrites]]

@@ -4,7 +4,9 @@ This repo is a **pnpm monorepo**. The dashboard is `@workspace/agentwatch` under
 
 ## 1. Connect GitHub
 
-Import the project from [github.com/Harshvardhan4134/AG](https://github.com/Harshvardhan4134/AG) in the [Vercel dashboard](https://vercel.com/new). Vercel reads `vercel.json` at the repo root for install/build/output and SPA rewrites.
+Import the project from [github.com/Harshvardhan4134/AG](https://github.com/Harshvardhan4134/AG) in the [Vercel dashboard](https://vercel.com/new). Vercel reads `vercel.json` for install/build/output and SPA rewrites.
+
+**If the build fails with “No Output Directory named `public`”:** open **Project → Settings → Build & Development** and remove any **Override** for **Output Directory** (or set it to `artifacts/agentwatch/dist` when the **Root Directory** is the repo root, or `dist` when the Root Directory is `artifacts/agentwatch`). Do **not** use `public` unless that folder is your real build output.
 
 ## 2. Environment variables (Project → Settings → Environment Variables)
 
@@ -59,4 +61,8 @@ pnpm install --ignore-scripts
 pnpm --filter @workspace/agentwatch build
 ```
 
-Output is `artifacts/agentwatch/dist/public/`.
+Output is `artifacts/agentwatch/dist/` (`index.html` at the root of that folder).
+
+### Vercel project root
+
+Use **repository root** (where this repo’s `vercel.json` lives). If you instead set **Root Directory** to `artifacts/agentwatch`, Vercel uses `artifacts/agentwatch/vercel.json` (install/build run from the monorepo root via `cd ../..`).
