@@ -5,6 +5,7 @@ import {
   GitBranch, Sparkles, Lock, AlertTriangle
 } from "lucide-react";
 import { BrandLogo } from "../components/BrandLogo";
+import { useAuth } from "../lib/auth-context";
 
 const sections = [
   { id: "overview", label: "Overview" },
@@ -29,6 +30,9 @@ function Code({ children }: { children: string }) {
 
 export default function Documentation() {
   const [, navigate] = useLocation();
+  const { user } = useAuth();
+
+  const goBack = () => navigate(user ? "/dashboard" : "/");
 
   return (
     <div className="min-h-screen bg-[#060606] text-white">
@@ -36,11 +40,11 @@ export default function Documentation() {
         <div className="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between gap-4">
           <button
             type="button"
-            onClick={() => navigate("/")}
+            onClick={goBack}
             className="flex items-center gap-2 text-white/45 hover:text-white/80 text-sm transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
-            Home
+            {user ? "Dashboard" : "Home"}
           </button>
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-lg overflow-hidden flex items-center justify-center ring-1 ring-white/10 bg-white/[0.03]">
@@ -48,13 +52,23 @@ export default function Documentation() {
             </div>
             <span className="font-black tracking-tight">Documentation</span>
           </div>
-          <button
-            type="button"
-            onClick={() => navigate("/signin")}
-            className="text-sm text-red-400 hover:text-red-300 font-medium"
-          >
-            Sign in
-          </button>
+          {user ? (
+            <button
+              type="button"
+              onClick={() => navigate("/dashboard")}
+              className="text-sm text-red-400 hover:text-red-300 font-medium"
+            >
+              Dashboard
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => navigate("/signin")}
+              className="text-sm text-red-400 hover:text-red-300 font-medium"
+            >
+              Sign in
+            </button>
+          )}
         </div>
       </header>
 
