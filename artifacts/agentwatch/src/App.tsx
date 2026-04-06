@@ -1,27 +1,97 @@
-import { Switch, Route, Router as WouterRouter } from "wouter";
+import { Switch, Route, Router as WouterRouter, useLocation } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import NotFound from "@/pages/not-found";
+import { AuthProvider, useAuth } from "./lib/auth-context";
+import Landing from "./pages/Landing";
+import SignIn from "./pages/SignIn";
+import SignUp from "./pages/SignUp";
+import Dashboard from "./pages/Dashboard";
+import Traces from "./pages/Traces";
+import TraceDetail from "./pages/TraceDetail";
+import ApiKeys from "./pages/ApiKeys";
+import Alerts from "./pages/Alerts";
+import Settings from "./pages/Settings";
+import { Loader2 } from "lucide-react";
+import { ReactNode } from "react";
 
 const queryClient = new QueryClient();
 
-function Home() {
-  return (
-    <div className="min-h-screen w-full flex items-center justify-center bg-gray-50">
-      <div className="text-center">
-        <h1 className="text-2xl font-bold text-gray-900">Replit Agent is building...</h1>
-        <p className="mt-2 text-sm text-gray-600">Your app will appear here once it's ready.</p>
+function ProtectedRoute({ children }: { children: ReactNode }) {
+  const { user, loading } = useAuth();
+  const [, navigate] = useLocation();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#060606] flex items-center justify-center">
+        <Loader2 className="w-6 h-6 text-red-500 animate-spin" />
       </div>
-    </div>
-  );
+    );
+  }
+
+  if (!user) {
+    setTimeout(() => navigate("/signin"), 0);
+    return null;
+  }
+
+  return <>{children}</>;
 }
 
 function Router() {
   return (
     <Switch>
-      <Route path="/" component={Home} />
-      <Route component={NotFound} />
+      <Route path="/" component={Landing} />
+      <Route path="/signin" component={SignIn} />
+      <Route path="/signup" component={SignUp} />
+      <Route path="/dashboard">
+        {() => (
+          <ProtectedRoute>
+            <Dashboard />
+          </ProtectedRoute>
+        )}
+      </Route>
+      <Route path="/dashboard/traces">
+        {() => (
+          <ProtectedRoute>
+            <Traces />
+          </ProtectedRoute>
+        )}
+      </Route>
+      <Route path="/dashboard/traces/:runId">
+        {() => (
+          <ProtectedRoute>
+            <TraceDetail />
+          </ProtectedRoute>
+        )}
+      </Route>
+      <Route path="/dashboard/alerts">
+        {() => (
+          <ProtectedRoute>
+            <Alerts />
+          </ProtectedRoute>
+        )}
+      </Route>
+      <Route path="/dashboard/keys">
+        {() => (
+          <ProtectedRoute>
+            <ApiKeys />
+          </ProtectedRoute>
+        )}
+      </Route>
+      <Route path="/dashboard/settings">
+        {() => (
+          <ProtectedRoute>
+            <Settings />
+          </ProtectedRoute>
+        )}
+      </Route>
+      <Route>
+        {() => (
+          <div className="min-h-screen bg-[#060606] flex items-center justify-center text-white/40">
+            404 — Page not found
+          </div>
+        )}
+      </Route>
     </Switch>
   );
 }
@@ -30,9 +100,11 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-          <Router />
-        </WouterRouter>
+        <AuthProvider>
+          <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+            <Router />
+          </WouterRouter>
+        </AuthProvider>
         <Toaster />
       </TooltipProvider>
     </QueryClientProvider>
