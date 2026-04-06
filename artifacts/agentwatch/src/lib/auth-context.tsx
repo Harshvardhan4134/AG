@@ -8,11 +8,20 @@ import {
   GoogleAuthProvider,
   signInWithPopup,
 } from "firebase/auth";
-import { auth } from "./firebase";
+import { auth, isFirebaseConfigured } from "./firebase";
+
+const DEMO_KEY = "agentwatch_demo_user";
+
+interface DemoUser {
+  uid: string;
+  email: string;
+  displayName: string;
+}
 
 interface AuthContextType {
-  user: User | null;
+  user: User | DemoUser | null;
   loading: boolean;
+  isDemoMode: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string) => Promise<void>;
   signInWithGoogle: () => Promise<void>;
@@ -21,37 +30,88 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
+function getDemoUser(): DemoUser | null {
+  try {
+    const raw = localStorage.getItem(DEMO_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+function setDemoUser(email: string): DemoUser {
+  const u: DemoUser = {
+    uid: "demo-" + Math.random().toString(36).slice(2),
+    email,
+    displayName: email.split("@")[0],
+  };
+  localStorage.setItem(DEMO_KEY, JSON.stringify(u));
+  return u;
+}
+
+function clearDemoUser() {
+  localStorage.removeItem(DEMO_KEY);
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<User | DemoUser | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (u) => {
-      setUser(u);
+    if (isFirebaseConfigured && auth) {
+      const unsubscribe = onAuthStateChanged(auth, (u) => {
+        setUser(u);
+        setLoading(false);
+      });
+      return unsubscribe;
+    } else {
+      const demo = getDemoUser();
+      setUser(demo);
       setLoading(false);
-    });
-    return unsubscribe;
+    }
   }, []);
 
   const signIn = async (email: string, password: string) => {
-    await signInWithEmailAndPassword(auth, email, password);
+    if (isFirebaseConfigured && auth) {
+      await signInWithEmailAndPassword(auth, email, password);
+    } else {
+      if (!email || !password) throw new Error("Please enter your email and password.");
+      const u = setDemoUser(email);
+      setUser(u);
+    }
   };
 
   const signUp = async (email: string, password: string) => {
-    await createUserWithEmailAndPassword(auth, email, password);
+    if (isFirebaseConfigured && auth) {
+      await createUserWithEmailAndPassword(auth, email, password);
+    } else {
+      if (!email || !password) throw new Error("Please enter your email and password.");
+      const u = setDemoUser(email);
+      setUser(u);
+    }
   };
 
   const signInWithGoogle = async () => {
-    const provider = new GoogleAuthProvider();
-    await signInWithPopup(auth, provider);
+    if (isFirebaseConfigured && auth) {
+      const provider = new GoogleAuthProvider();
+      await signInWithPopup(auth, provider);
+    } else {
+      const u = setDemoUser("demo@agentwatch.ai");
+      setUser(u);
+    }
   };
 
   const logout = async () => {
-    await signOut(auth);
+    if (isFirebaseConfigured && auth) {
+      await signOut(auth);
+    } else {
+      clearDemoUser();
+      setUser(null);
+    }
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, signIn, signUp, signInWithGoogle, logout }}>
+    <AuthContext.Provider value={{ user, loading, isDemoMode: !isFirebaseConfigured, signIn, signUp, signInWithGoogle, logout }}>
       {children}
     </AuthContext.Provider>
   );

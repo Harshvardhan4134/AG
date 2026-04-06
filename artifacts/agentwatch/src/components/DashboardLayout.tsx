@@ -16,7 +16,7 @@ const navItems = [
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   const [, navigate] = useLocation();
-  const { user, logout } = useAuth();
+  const { user, logout, isDemoMode } = useAuth();
 
   return (
     <div className="min-h-screen bg-[#060606] flex">
@@ -45,10 +45,17 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
 
         {/* Status badge */}
         <div className="px-5 py-3 border-b border-white/5">
-          <div className="flex items-center gap-2 bg-emerald-500/8 border border-emerald-500/15 rounded-lg px-3 py-2">
-            <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
-            <span className="text-emerald-400 text-[10px] font-mono font-medium">All systems normal</span>
-          </div>
+          {isDemoMode ? (
+            <div className="flex items-center gap-2 bg-amber-500/8 border border-amber-500/15 rounded-lg px-3 py-2">
+              <div className="w-1.5 h-1.5 bg-amber-500 rounded-full" />
+              <span className="text-amber-400/80 text-[10px] font-mono font-medium">Demo Mode</span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 bg-emerald-500/8 border border-emerald-500/15 rounded-lg px-3 py-2">
+              <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
+              <span className="text-emerald-400 text-[10px] font-mono font-medium">All systems normal</span>
+            </div>
+          )}
         </div>
 
         {/* Nav */}

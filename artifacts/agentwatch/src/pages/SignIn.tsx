@@ -1,12 +1,12 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { useLocation } from "wouter";
-import { Shield, Eye, EyeOff, Loader2 } from "lucide-react";
+import { Shield, Eye, EyeOff, Loader2, FlaskConical } from "lucide-react";
 import { useAuth } from "../lib/auth-context";
 
 export default function SignIn() {
   const [, navigate] = useLocation();
-  const { signIn, signInWithGoogle } = useAuth();
+  const { signIn, signInWithGoogle, isDemoMode } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPw, setShowPw] = useState(false);
@@ -64,6 +64,15 @@ export default function SignIn() {
         </div>
 
         <div className="bg-white/3 border border-white/10 rounded-2xl p-8">
+          {isDemoMode && (
+            <div className="flex items-start gap-3 bg-amber-500/8 border border-amber-500/20 rounded-xl px-4 py-3 mb-6">
+              <FlaskConical className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="text-amber-400 text-xs font-semibold mb-0.5">Demo Mode</p>
+                <p className="text-amber-400/70 text-xs leading-relaxed">Firebase isn't configured yet. Enter any email &amp; password to explore the dashboard.</p>
+              </div>
+            </div>
+          )}
           {/* Google */}
           <button
             onClick={handleGoogle}
