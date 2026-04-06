@@ -84,7 +84,7 @@ export const mockTraceDetail = {
       step_type: "llm_call",
       input: "Customer message: Where is my refund? Order #4521",
       output:
-        "Your refund of $450 has been approved and will be processed within 2-3 business days.",
+        "Your refund of ₹450 has been approved and will be processed within 2-3 business days.",
       model: "gpt-4o",
       latency_ms: 920,
       tokens: 312,
