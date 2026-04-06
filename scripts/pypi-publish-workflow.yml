@@ -1,0 +1,42 @@
+# Copy this file to: .github/workflows/workflow.yml on GitHub (Add file → Create new file)
+# Or rename locally once your PAT has "workflow" scope and commit under .github/workflows/
+
+name: Publish agentwatch-io to PyPI
+
+on:
+  workflow_dispatch:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/project/agentwatch-io/
+    permissions:
+      id-token: write
+    defaults:
+      run:
+        working-directory: agentwatch-sdk
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install build
+        run: pip install build
+
+      - name: Build sdist and wheel
+        run: python -m build
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: agentwatch-sdk/dist/
