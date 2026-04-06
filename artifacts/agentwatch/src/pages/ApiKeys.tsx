@@ -9,6 +9,7 @@ import {
   deleteApiKey,
   setStoredApiKey,
   getStoredApiKey,
+  API_BASE,
 } from "../lib/api";
 
 export default function ApiKeys() {
@@ -122,7 +123,19 @@ export default function ApiKeys() {
       </motion.div>
 
       {error && (
-        <div className="text-red-400 text-sm mb-4">{(error as Error).message}</div>
+        <div className="mb-4 rounded-xl border border-red-500/25 bg-red-600/10 px-4 py-3 text-sm">
+          <p className="text-red-300 font-medium">{(error as Error).message}</p>
+          {String((error as Error).message).toLowerCase().includes("fetch") && (
+            <p className="mt-2 text-white/50 text-xs leading-relaxed">
+              The dashboard loads keys from your AgentWatch API at{" "}
+              <code className="text-red-400/90 font-mono">{API_BASE}</code>. On Vercel, set{" "}
+              <code className="text-white/70 font-mono">VITE_API_URL</code> to your deployed API (HTTPS, no trailing
+              slash). Ensure the API is reachable publicly and <code className="text-white/70 font-mono">CORS_ORIGINS</code>{" "}
+              includes this site&apos;s origin. Browsers cannot reach <code className="text-white/60">localhost</code> from a
+              hosted domain.
+            </p>
+          )}
+        </div>
       )}
 
       <div className="space-y-3 mb-6">

@@ -27,3 +27,7 @@ uvicorn main:app --host 0.0.0.0 --port 8000
 
 - Set `RESEND_API_KEY` and a verified `RESEND_FROM` domain for email alerts.
 - Restrict `CORS_ORIGINS` to your dashboard origin(s).
+
+## Google Cloud Run (HTTPS)
+
+See **[CLOUD_RUN.md](./CLOUD_RUN.md)** for a full deploy: Dockerfile, Artifact Registry, Secret Manager for `FIREBASE_SERVICE_ACCOUNT_JSON`, and wiring **`VITE_API_URL`** on Vercel.

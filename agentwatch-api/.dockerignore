@@ -1,0 +1,11 @@
+venv
+__pycache__
+*.pyc
+.env
+.env.*
+*.md
+.git
+.gitignore
+.pytest_cache
+.mypy_cache
+*firebase-adminsdk*.json
