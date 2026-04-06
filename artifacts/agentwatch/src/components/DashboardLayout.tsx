@@ -1,10 +1,12 @@
-import { ReactNode } from "react";
+import { ReactNode, useEffect, useState } from "react";
 import { useLocation, useRoute } from "wouter";
 import { motion } from "framer-motion";
 import {
-  Shield, LayoutDashboard, Activity, Key, Bell, LogOut, Settings, ChevronRight, Zap
+  LayoutDashboard, Activity, Key, Bell, LogOut, Settings, ChevronRight, Zap, BookOpen
 } from "lucide-react";
+import { BrandLogo } from "./BrandLogo";
 import { useAuth } from "../lib/auth-context";
+import { getStoredApiKey } from "../lib/api";
 
 const navItems = [
   { icon: <LayoutDashboard className="w-4 h-4" />, label: "Dashboard", path: "/dashboard" },
@@ -12,12 +14,19 @@ const navItems = [
   { icon: <Bell className="w-4 h-4" />,            label: "Alerts",    path: "/dashboard/alerts" },
   { icon: <Key className="w-4 h-4" />,             label: "API Keys",  path: "/dashboard/keys" },
   { icon: <Settings className="w-4 h-4" />,        label: "Settings",  path: "/dashboard/settings" },
+  { icon: <BookOpen className="w-4 h-4" />,        label: "Docs",      path: "/docs" },
 ];
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   const [, navigate] = useLocation();
-  const { user, logout, isDemoMode } = useAuth();
+  const { user, logout } = useAuth();
   const initial = user?.email?.charAt(0).toUpperCase() || "U";
+  const [hasApiKey, setHasApiKey] = useState(!!getStoredApiKey());
+  useEffect(() => {
+    setHasApiKey(!!getStoredApiKey());
+    const t = setInterval(() => setHasApiKey(!!getStoredApiKey()), 2000);
+    return () => clearInterval(t);
+  }, []);
 
   return (
     <div className="min-h-screen bg-[#060606] flex">
@@ -38,8 +47,8 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
             onClick={() => navigate("/dashboard")}
             className="flex items-center gap-2.5 group w-full"
           >
-            <div className="w-7 h-7 rounded-lg bg-red-600 flex items-center justify-center glow-red group-hover:bg-red-500 transition-all group-hover:scale-105">
-              <Shield className="w-4 h-4 text-white" />
+            <div className="w-7 h-7 rounded-lg overflow-hidden flex items-center justify-center glow-red ring-1 ring-white/10 bg-white/[0.03] group-hover:ring-red-500/30 transition-all group-hover:scale-105">
+              <BrandLogo size={26} className="w-[1.625rem] h-[1.625rem]" />
             </div>
             <div className="flex-1">
               <div className="text-sm font-black text-white leading-none">AgentWatch</div>
@@ -50,15 +59,19 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
 
         {/* Status badge */}
         <div className="px-4 py-3 border-b border-white/[0.04]">
-          {isDemoMode ? (
-            <div className="flex items-center gap-2 bg-amber-500/[0.08] border border-amber-500/[0.15] rounded-lg px-3 py-2">
+          {!hasApiKey ? (
+            <button
+              type="button"
+              onClick={() => navigate("/dashboard/keys")}
+              className="w-full flex items-center gap-2 bg-amber-500/[0.08] border border-amber-500/[0.15] rounded-lg px-3 py-2 text-left"
+            >
               <div className="w-1.5 h-1.5 bg-amber-500 rounded-full" />
-              <span className="text-amber-400/80 text-[10px] font-mono font-medium">Demo Mode</span>
-            </div>
+              <span className="text-amber-400/80 text-[10px] font-mono font-medium">Add API key</span>
+            </button>
           ) : (
             <div className="flex items-center gap-2 bg-emerald-500/[0.07] border border-emerald-500/[0.15] rounded-lg px-3 py-2">
               <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
-              <span className="text-emerald-400/80 text-[10px] font-mono font-medium">All systems normal</span>
+              <span className="text-emerald-400/80 text-[10px] font-mono font-medium">API connected</span>
             </div>
           )}
         </div>
@@ -83,7 +96,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
               <div className="text-white text-xs font-semibold truncate">
                 {user?.displayName || user?.email?.split("@")[0] || "User"}
               </div>
-              <div className="text-white/30 text-[10px] truncate">{user?.email || "demo@agentwatch.io"}</div>
+              <div className="text-white/30 text-[10px] truncate">{user?.email || "—"}</div>
             </div>
           </div>
           <button
@@ -132,7 +145,13 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
 }
 
 function NavItem({ icon, label, path }: { icon: ReactNode; label: string; path: string }) {
-  const [isActive] = useRoute(path === "/dashboard" ? "/dashboard" : path + "/:rest*");
+  const routePattern =
+    path === "/dashboard"
+      ? "/dashboard"
+      : path === "/docs"
+        ? "/docs"
+        : path + "/:rest*";
+  const [isActive] = useRoute(routePattern);
   const [, navigate] = useLocation();
 
   return (

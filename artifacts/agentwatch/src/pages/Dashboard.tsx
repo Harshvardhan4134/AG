@@ -1,14 +1,16 @@
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { useLocation } from "wouter";
 import {
   Activity, AlertTriangle, CheckCircle, Clock, Copy, Check,
-  TrendingUp, Zap, ArrowUpRight, Terminal
+  TrendingUp, Zap, ArrowUpRight, Terminal, Loader2
 } from "lucide-react";
 import DashboardLayout from "../components/DashboardLayout";
-import { mockStats, mockRecentRuns, mockLatencyData } from "../lib/mock-data";
 import { AreaChart, Area, XAxis, YAxis, ResponsiveContainer, Tooltip } from "recharts";
 import { useAuth } from "../lib/auth-context";
+import { fetchStats, fetchTraces, getStoredApiKey } from "../lib/api";
+import { mockLatencyData } from "../lib/mock-data";
 
 const staggerChild = {
   hidden: { opacity: 0, y: 20 },
@@ -22,11 +24,36 @@ export default function Dashboard() {
   const [, navigate] = useLocation();
   const { user } = useAuth();
   const [copied, setCopied] = useState(false);
+  const hasKey = !!getStoredApiKey();
+
+  const statsQuery = useQuery({
+    queryKey: ["stats"],
+    queryFn: fetchStats,
+    enabled: hasKey,
+    retry: 1,
+  });
+
+  const tracesQuery = useQuery({
+    queryKey: ["traces", "recent"],
+    queryFn: () => fetchTraces({ limit: 8, offset: 0 }),
+    enabled: hasKey,
+    retry: 1,
+  });
+
+  const s = statsQuery.data;
+  const stats = [
+    { label: "Total Traces", value: (s?.total_traces ?? 0).toLocaleString(), color: "text-white", icon: <Activity className="w-5 h-5" />, bg: "bg-white/5" },
+    { label: "Flagged", value: s?.flagged_traces ?? 0, color: "text-red-400", icon: <AlertTriangle className="w-5 h-5" />, bg: "bg-red-600/8" },
+    { label: "Healthy", value: (s?.ok_traces ?? 0).toLocaleString(), color: "text-emerald-400", icon: <CheckCircle className="w-5 h-5" />, bg: "bg-emerald-500/8" },
+    { label: "Flags (24h)", value: s?.last_24h?.flagged ?? s?.flags_today ?? 0, color: "text-amber-400", icon: <Zap className="w-5 h-5" />, bg: "bg-amber-500/8" },
+  ];
+
+  const recentRuns = tracesQuery.data?.traces ?? [];
 
   const initCode = `import agentwatch
 
 agentwatch.init(
-    api_key="aw_your_key_here",
+    api_key="${getStoredApiKey() || "aw_your_key_here"}",
     agent_name="my-agent"
 )
 # That's it — all LLM calls are now monitored`;
@@ -37,56 +64,64 @@ agentwatch.init(
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const stats = [
-    { label: "Total Traces", value: mockStats.total_traces.toLocaleString(), color: "text-white", icon: <Activity className="w-5 h-5" />, bg: "bg-white/5" },
-    { label: "Flagged", value: mockStats.flagged_traces, color: "text-red-400", icon: <AlertTriangle className="w-5 h-5" />, bg: "bg-red-600/8" },
-    { label: "Healthy", value: mockStats.ok_traces.toLocaleString(), color: "text-emerald-400", icon: <CheckCircle className="w-5 h-5" />, bg: "bg-emerald-500/8" },
-    { label: "Flags Today", value: mockStats.flags_today, color: "text-amber-400", icon: <Zap className="w-5 h-5" />, bg: "bg-amber-500/8" },
-  ];
-
   return (
     <DashboardLayout>
-      {/* Header */}
       <motion.div custom={0} initial="hidden" animate="show" variants={staggerChild} className="mb-8">
         <div className="flex items-end justify-between">
           <div>
             <h1 className="text-2xl font-black text-white">
               Good morning{user?.displayName ? `, ${user.displayName.split(" ")[0]}` : ""}
             </h1>
-            <p className="text-white/40 text-sm mt-1">Your agent health overview · April 6, 2026</p>
+            <p className="text-white/40 text-sm mt-1">Your agent health overview</p>
           </div>
           <div className="flex items-center gap-2 text-xs">
             <div className="flex items-center gap-1.5 bg-white/4 border border-white/8 rounded-lg px-3 py-2">
               <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
-              <span className="text-emerald-400 font-medium">+12% this week</span>
+              <span className="text-emerald-400 font-medium">Live</span>
             </div>
           </div>
         </div>
       </motion.div>
 
-      {/* Stats cards */}
+      {!hasKey && (
+        <div className="mb-6 p-4 rounded-xl border border-amber-500/25 bg-amber-500/5 text-amber-200/90 text-sm">
+          Add an <button type="button" className="underline font-medium" onClick={() => navigate("/dashboard/keys")}>API key</button>{" "}
+          and store it in this browser so the dashboard can load traces from the AgentWatch API.
+        </div>
+      )}
+
+      {hasKey && statsQuery.isError && (
+        <div className="mb-6 p-4 rounded-xl border border-red-500/25 bg-red-500/5 text-red-300 text-sm">
+          Could not reach API ({(statsQuery.error as Error)?.message}). Check VITE_API_URL and that the server is running.
+        </div>
+      )}
+
       <div className="grid grid-cols-4 gap-4 mb-8">
-        {stats.map((s, i) => (
+        {stats.map((st, i) => (
           <motion.div
-            key={s.label}
+            key={st.label}
             custom={i + 1}
             initial="hidden"
             animate="show"
             variants={staggerChild}
-            className={`${s.bg} border border-white/8 rounded-2xl p-5 card-hover`}
+            className={`${st.bg} border border-white/8 rounded-2xl p-5 card-hover`}
           >
             <div className="flex items-center justify-between mb-3">
-              <span className="text-white/30 text-xs font-medium">{s.label}</span>
-              <span className={`${s.color} opacity-60`}>{s.icon}</span>
+              <span className="text-white/30 text-xs font-medium">{st.label}</span>
+              <span className={`${st.color} opacity-60`}>{st.icon}</span>
             </div>
-            <div className={`text-3xl font-black ${s.color}`}>{s.value}</div>
+            <div className={`text-3xl font-black ${st.color} flex items-center gap-2`}>
+              {hasKey && (statsQuery.isLoading || tracesQuery.isLoading) ? (
+                <Loader2 className="w-6 h-6 animate-spin text-white/30" />
+              ) : (
+                st.value
+              )}
+            </div>
           </motion.div>
         ))}
       </div>
 
-      {/* Chart + recent runs */}
       <div className="grid grid-cols-3 gap-6 mb-8">
-        {/* Latency chart */}
         <motion.div
           custom={5}
           initial="hidden"
@@ -97,11 +132,11 @@ agentwatch.init(
           <div className="flex items-center justify-between mb-6">
             <div>
               <h2 className="text-white font-bold text-sm">Latency Trend</h2>
-              <p className="text-white/30 text-xs mt-0.5">Last 24 hours · ms</p>
+              <p className="text-white/30 text-xs mt-0.5">Illustrative · connect traces for live charts</p>
             </div>
             <div className="flex items-center gap-1.5 bg-white/5 px-3 py-1.5 rounded-lg">
               <Clock className="w-3 h-3 text-white/40" />
-              <span className="text-white/50 text-xs">{mockStats.avg_latency_ms}ms avg</span>
+              <span className="text-white/50 text-xs">demo curve</span>
             </div>
           </div>
           <ResponsiveContainer width="100%" height={160}>
@@ -123,7 +158,6 @@ agentwatch.init(
           </ResponsiveContainer>
         </motion.div>
 
-        {/* Quick metrics */}
         <motion.div
           custom={6}
           initial="hidden"
@@ -134,9 +168,9 @@ agentwatch.init(
           <h2 className="text-white font-bold text-sm mb-5">Quick Metrics</h2>
           <div className="space-y-4">
             {[
-              { label: "Total Tokens Used", value: (mockStats.total_tokens / 1000000).toFixed(1) + "M", pct: 65 },
-              { label: "Flag Rate", value: "1.8%", pct: 18 },
-              { label: "Avg Latency", value: "842ms", pct: 42 },
+              { label: "Traces (24h)", value: String(s?.last_24h?.traces ?? "—"), pct: 40 },
+              { label: "Flag rate", value: s?.total_traces ? `${((s.flagged_traces / s.total_traces) * 100).toFixed(1)}%` : "—", pct: 18 },
+              { label: "Flag types", value: String(Object.keys(s?.flags_by_type ?? {}).length), pct: 30 },
             ].map((m) => (
               <div key={m.label}>
                 <div className="flex items-center justify-between text-xs mb-1.5">
@@ -154,24 +188,14 @@ agentwatch.init(
               </div>
             ))}
           </div>
-
-          <div className="mt-6 pt-5 border-t border-white/5">
-            <div className="text-xs text-white/30 mb-3">Active Agents</div>
-            {["support-bot", "email-agent", "data-pipeline"].map((a) => (
-              <div key={a} className="flex items-center gap-2 mb-2">
-                <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
-                <span className="text-white/60 text-xs font-mono">{a}</span>
-              </div>
-            ))}
-          </div>
         </motion.div>
       </div>
 
-      {/* Recent runs table */}
       <motion.div custom={7} initial="hidden" animate="show" variants={staggerChild}>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-white font-bold">Recent Agent Runs</h2>
           <button
+            type="button"
             onClick={() => navigate("/dashboard/traces")}
             className="flex items-center gap-1 text-xs text-white/40 hover:text-red-400 transition-colors"
           >
@@ -191,7 +215,7 @@ agentwatch.init(
               </tr>
             </thead>
             <tbody>
-              {mockRecentRuns.map((run, i) => (
+              {recentRuns.map((run, i) => (
                 <motion.tr
                   key={run.run_id}
                   initial={{ opacity: 0, x: -10 }}
@@ -210,7 +234,7 @@ agentwatch.init(
                   </td>
                   <td className="px-5 py-4">
                     <span className="font-mono text-xs text-white/50 group-hover:text-white/70 transition-colors">
-                      {run.run_id}...
+                      {run.run_id.slice(0, 14)}…
                     </span>
                   </td>
                   <td className="px-5 py-4">
@@ -224,7 +248,7 @@ agentwatch.init(
                   </td>
                   <td className="px-5 py-4">
                     <span className="text-xs text-white/30">
-                      {new Date(run.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                      {run.created_at ? new Date(run.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "—"}
                     </span>
                   </td>
                   <td className="px-5 py-4">
@@ -244,10 +268,12 @@ agentwatch.init(
               ))}
             </tbody>
           </table>
+          {hasKey && recentRuns.length === 0 && !tracesQuery.isLoading && (
+            <div className="text-center py-8 text-white/30 text-sm">No traces yet. Send one from the SDK.</div>
+          )}
         </div>
       </motion.div>
 
-      {/* Integration snippet */}
       <motion.div custom={8} initial="hidden" animate="show" variants={staggerChild} className="mt-8">
         <div className="bg-white/2 border border-white/8 rounded-2xl p-6">
           <div className="flex items-center justify-between mb-4">
@@ -256,6 +282,7 @@ agentwatch.init(
               <h3 className="text-white font-bold text-sm">Add to your agent</h3>
             </div>
             <button
+              type="button"
               onClick={copyCode}
               className="flex items-center gap-1.5 text-xs text-white/40 hover:text-white/70 transition-colors"
             >
@@ -267,7 +294,7 @@ agentwatch.init(
             {initCode}
           </div>
           <p className="text-white/25 text-xs mt-3">
-            Install: <span className="text-white/40 font-mono">pip install agentwatch</span>
+            Install: <span className="text-white/40 font-mono">pip install -e ./agentwatch-sdk</span>
           </p>
         </div>
       </motion.div>

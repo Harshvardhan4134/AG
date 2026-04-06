@@ -1,12 +1,14 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { useLocation } from "wouter";
-import { Shield, Eye, EyeOff, Loader2, FlaskConical, AlertTriangle, CheckCircle, Zap } from "lucide-react";
+import { Eye, EyeOff, Loader2, FlaskConical, AlertTriangle, CheckCircle, Zap } from "lucide-react";
+import { BrandLogo } from "../components/BrandLogo";
 import { useAuth } from "../lib/auth-context";
+import { isFirebaseConfigured } from "../lib/firebase";
 
 export default function SignIn() {
   const [, navigate] = useLocation();
-  const { signIn, signInWithGoogle, isDemoMode } = useAuth();
+  const { signIn, signInWithGoogle } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPw, setShowPw] = useState(false);
@@ -53,8 +55,8 @@ export default function SignIn() {
         <div className="relative z-10 flex flex-col h-full p-10">
           {/* Logo */}
           <div className="flex items-center gap-2.5 mb-auto">
-            <div className="w-8 h-8 rounded-lg bg-red-600 flex items-center justify-center glow-red">
-              <Shield className="w-4 h-4 text-white" />
+            <div className="w-8 h-8 rounded-lg overflow-hidden flex items-center justify-center glow-red ring-1 ring-white/10 bg-white/[0.03]">
+              <BrandLogo size={30} className="w-[1.875rem] h-[1.875rem]" />
             </div>
             <span className="font-black text-white text-lg">AgentWatch</span>
           </div>
@@ -74,7 +76,7 @@ export default function SignIn() {
             <div className="space-y-4">
               {[
                 { icon: <AlertTriangle className="w-4 h-4" />, color: "text-red-400", bg: "bg-red-600/10 border-red-600/20", text: "Hallucination detection in real-time" },
-                { icon: <Zap className="w-4 h-4" />,           color: "text-amber-400", bg: "bg-amber-500/10 border-amber-500/20", text: "Latency spike alerts + deep analysis" },
+                { icon: <Zap className="w-4 h-4" />,           color: "text-amber-400", bg: "bg-amber-500/10 border-amber-500/20", text: "Latency spike alerts + LLM analysis" },
                 { icon: <CheckCircle className="w-4 h-4" />,   color: "text-emerald-400", bg: "bg-emerald-500/10 border-emerald-500/20", text: "2-line Python SDK · zero friction" },
               ].map((item, i) => (
                 <motion.div
@@ -138,8 +140,8 @@ export default function SignIn() {
         >
           {/* Mobile logo */}
           <div className="flex lg:hidden items-center gap-2.5 mb-8">
-            <div className="w-8 h-8 rounded-lg bg-red-600 flex items-center justify-center glow-red">
-              <Shield className="w-4 h-4 text-white" />
+            <div className="w-8 h-8 rounded-lg overflow-hidden flex items-center justify-center glow-red ring-1 ring-white/10 bg-white/[0.03]">
+              <BrandLogo size={30} className="w-[1.875rem] h-[1.875rem]" />
             </div>
             <span className="font-black text-white text-lg">AgentWatch</span>
           </div>
@@ -147,7 +149,7 @@ export default function SignIn() {
           <h1 className="text-2xl font-black text-white mb-1">Welcome back</h1>
           <p className="text-white/40 text-sm mb-8">Sign in to your dashboard</p>
 
-          {isDemoMode && (
+          {!isFirebaseConfigured && (
             <motion.div
               initial={{ opacity: 0, scale: 0.97 }}
               animate={{ opacity: 1, scale: 1 }}
@@ -155,8 +157,10 @@ export default function SignIn() {
             >
               <FlaskConical className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
               <div>
-                <p className="text-amber-400 text-xs font-bold mb-0.5">Demo Mode</p>
-                <p className="text-amber-400/65 text-xs leading-relaxed">Firebase isn't configured yet. Enter any email &amp; password to explore the dashboard.</p>
+                <p className="text-amber-400 text-xs font-bold mb-0.5">Configuration required</p>
+                <p className="text-amber-400/65 text-xs leading-relaxed">
+                  Set VITE_FIREBASE_* and VITE_API_URL in <span className="font-mono">.env.local</span>.
+                </p>
               </div>
             </motion.div>
           )}
@@ -208,7 +212,16 @@ export default function SignIn() {
             </div>
 
             <div>
-              <label className="block text-white/50 text-xs font-medium mb-2">Password</label>
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-white/50 text-xs font-medium">Password</label>
+                <button
+                  type="button"
+                  onClick={() => navigate("/forgot-password")}
+                  className="text-xs text-white/35 hover:text-red-400/90 transition-colors"
+                >
+                  Forgot password?
+                </button>
+              </div>
               <div className="relative">
                 <input
                   type={showPw ? "text" : "password"}

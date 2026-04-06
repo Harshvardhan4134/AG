@@ -1,0 +1,15 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "agentwatch"
+version = "0.1.0"
+description = "Production monitoring SDK for AI agents"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = ["requests>=2.28.0"]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["agentwatch*"]

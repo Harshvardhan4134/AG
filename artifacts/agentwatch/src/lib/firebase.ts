@@ -20,10 +20,21 @@ if (isFirebaseConfigured) {
     storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
     messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
     appId: import.meta.env.VITE_FIREBASE_APP_ID,
+    measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID,
   };
   app = initializeApp(firebaseConfig);
   auth = getAuth(app);
   db = getFirestore(app);
+
+  if (import.meta.env.PROD && typeof window !== "undefined") {
+    import("firebase/analytics")
+      .then(({ getAnalytics, isSupported }) => {
+        isSupported().then((ok) => {
+          if (ok && app) getAnalytics(app);
+        });
+      })
+      .catch(() => {});
+  }
 }
 
 export { app, auth, db };

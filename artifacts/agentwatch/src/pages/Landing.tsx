@@ -2,9 +2,10 @@ import { motion, useScroll, useTransform } from "framer-motion";
 import { useLocation } from "wouter";
 import { useEffect, useState, useRef } from "react";
 import {
-  Shield, Zap, Eye, AlertTriangle, ArrowRight, Activity,
+  Zap, Eye, AlertTriangle, ArrowRight, Activity,
   Code2, ChevronRight, Terminal, Cpu, GitBranch, Lock
 } from "lucide-react";
+import { BrandLogo } from "../components/BrandLogo";
 
 const TERMINAL_LINES = [
   { delay: 0,    text: "$ pip install agentwatch",              color: "text-white/60" },
@@ -135,7 +136,7 @@ const features = [
   },
   {
     icon: <Eye className="w-5 h-5" />,
-    title: "Deep Analysis",
+    title: "LLM analysis",
     desc: "Run an LLM judge on any flagged trace for root cause analysis and fix suggestions.",
     tag: "AI POWERED",
     color: "purple",
@@ -170,7 +171,6 @@ export default function Landing() {
       {/* Glow orbs */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden">
         <div className="glow-orb w-[700px] h-[500px] bg-red-600/8 top-[-100px] left-[40%] -translate-x-1/2" />
-        <div className="glow-orb w-[400px] h-[400px] bg-red-900/12 bottom-0 right-0" />
         <div className="glow-orb w-[300px] h-[300px] bg-red-800/6 top-[60%] left-[-50px]" />
       </div>
 
@@ -182,8 +182,8 @@ export default function Landing() {
           transition={{ duration: 0.5 }}
           className="flex items-center gap-2.5"
         >
-          <div className="w-8 h-8 rounded-lg bg-red-600 flex items-center justify-center animate-pulse-ring glow-red">
-            <Shield className="w-4.5 h-4.5 text-white" />
+          <div className="w-8 h-8 rounded-lg overflow-hidden flex items-center justify-center animate-pulse-ring glow-red ring-1 ring-white/10 bg-white/[0.03]">
+            <BrandLogo size={30} className="w-[1.875rem] h-[1.875rem]" />
           </div>
           <span className="text-base font-black tracking-tight">AgentWatch</span>
           <span className="text-[10px] font-mono bg-red-600/15 text-red-400 border border-red-600/25 px-1.5 py-0.5 rounded-md">
@@ -197,6 +197,13 @@ export default function Landing() {
           transition={{ delay: 0.3 }}
           className="flex items-center gap-5"
         >
+          <button
+            type="button"
+            onClick={() => navigate("/docs")}
+            className="text-sm text-white/50 hover:text-white transition-colors"
+          >
+            Docs
+          </button>
           <button
             onClick={() => navigate("/signin")}
             className="text-sm text-white/50 hover:text-white transition-colors"
@@ -451,17 +458,14 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* CTA */}
+      {/* CTA — solid black (no red wash) */}
       <section className="relative z-10 max-w-4xl mx-auto px-8 py-24 text-center">
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          className="relative overflow-hidden rounded-3xl border border-white/[0.08] bg-gradient-to-b from-white/[0.04] to-transparent p-14"
+          className="relative overflow-hidden rounded-3xl border border-white/[0.08] bg-black p-14"
         >
-          <div className="absolute inset-0 bg-gradient-to-b from-red-600/8 via-transparent to-transparent" />
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-64 h-px bg-gradient-to-r from-transparent via-red-500/50 to-transparent" />
-
           <div className="relative">
             <div className="inline-flex items-center gap-2 bg-red-600/10 border border-red-600/20 text-red-400 text-xs font-mono px-3 py-1.5 rounded-full mb-6">
               <GitBranch className="w-3 h-3" />
@@ -492,11 +496,11 @@ export default function Landing() {
         </motion.div>
       </section>
 
-      {/* Footer */}
-      <footer className="relative z-10 border-t border-white/[0.05] px-8 py-5 flex items-center justify-between">
+      {/* Footer — solid black so red glow does not read through */}
+      <footer className="relative z-30 bg-black border-t border-white/[0.06] px-8 py-6 flex items-center justify-between">
         <div className="flex items-center gap-2.5">
-          <div className="w-5 h-5 rounded-md bg-red-600/70 flex items-center justify-center">
-            <Shield className="w-3 h-3 text-white" />
+          <div className="w-5 h-5 rounded-md overflow-hidden flex items-center justify-center opacity-90">
+            <BrandLogo size={20} className="w-5 h-5" />
           </div>
           <span className="text-white/25 text-xs">AgentWatch · Production reliability for AI agents</span>
         </div>

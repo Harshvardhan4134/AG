@@ -1,0 +1,5 @@
+{
+  "firestore": {
+    "rules": "agentwatch-api/firestore.rules"
+  }
+}

@@ -1,28 +1,63 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { Bell, Slack, Mail, AlertTriangle, Save, Loader2, CheckCircle } from "lucide-react";
 import DashboardLayout from "../components/DashboardLayout";
-import { mockFlagDistribution } from "../lib/mock-data";
+import { fetchStats, fetchUserMe, patchUserMe, getStoredApiKey } from "../lib/api";
+
+const ALL_FLAGS = ["hallucination", "error_swallowed", "latency_spike", "empty_output"] as const;
 
 export default function Alerts() {
+  const qc = useQueryClient();
   const [email, setEmail] = useState("");
   const [slack, setSlack] = useState("");
-  const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
-  const [thresholds, setThresholds] = useState({
+  const [thresholds, setThresholds] = useState<Record<string, boolean>>({
     hallucination: true,
     error_swallowed: true,
     latency_spike: false,
     empty_output: false,
   });
 
-  const handleSave = async () => {
-    setSaving(true);
-    await new Promise((r) => setTimeout(r, 1000));
-    setSaving(false);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 3000);
-  };
+  const userQ = useQuery({ queryKey: ["user-me"], queryFn: fetchUserMe });
+  const statsQ = useQuery({
+    queryKey: ["stats"],
+    queryFn: fetchStats,
+    enabled: !!getStoredApiKey(),
+    retry: 1,
+  });
+
+  useEffect(() => {
+    const u = userQ.data?.user;
+    if (!u) return;
+    setEmail(String(u.alert_email || u.email || ""));
+    setSlack(String(u.slack_webhook || ""));
+    const types = u.alert_flag_types as string[] | undefined;
+    if (Array.isArray(types)) {
+      const next: Record<string, boolean> = {};
+      for (const f of ALL_FLAGS) {
+        next[f] = types.includes(f);
+      }
+      setThresholds(next);
+    }
+  }, [userQ.data]);
+
+  const mut = useMutation({
+    mutationFn: () =>
+      patchUserMe({
+        alert_email: email.trim() || undefined,
+        slack_webhook: slack.trim() || undefined,
+        alert_flag_types: ALL_FLAGS.filter((f) => thresholds[f]),
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["user-me"] });
+      setSaved(true);
+      setTimeout(() => setSaved(false), 3000);
+    },
+  });
+
+  const byType = statsQ.data?.flags_by_type || {};
+  const maxCount = Math.max(1, ...Object.values(byType).map(Number));
 
   return (
     <DashboardLayout>
@@ -32,9 +67,7 @@ export default function Alerts() {
       </div>
 
       <div className="grid grid-cols-2 gap-6">
-        {/* Left: config */}
         <div className="space-y-5">
-          {/* Email */}
           <motion.div
             initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
@@ -59,7 +92,6 @@ export default function Alerts() {
             />
           </motion.div>
 
-          {/* Slack */}
           <motion.div
             initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
@@ -85,7 +117,6 @@ export default function Alerts() {
             />
           </motion.div>
 
-          {/* Flag thresholds */}
           <motion.div
             initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
@@ -106,6 +137,7 @@ export default function Alerts() {
               {(Object.keys(thresholds) as Array<keyof typeof thresholds>).map((key) => (
                 <label key={key} className="flex items-center gap-3 cursor-pointer group">
                   <button
+                    type="button"
                     onClick={() => setThresholds((t) => ({ ...t, [key]: !t[key] }))}
                     className={`w-10 h-5 rounded-full border transition-all relative ${
                       thresholds[key]
@@ -133,22 +165,22 @@ export default function Alerts() {
           </motion.div>
 
           <button
-            onClick={handleSave}
-            disabled={saving}
+            type="button"
+            onClick={() => mut.mutate()}
+            disabled={mut.isPending || userQ.isLoading}
             className="flex items-center justify-center gap-2 w-full bg-red-600 hover:bg-red-500 disabled:opacity-60 text-white py-3 rounded-xl font-semibold text-sm transition-all hover:shadow-lg hover:shadow-red-600/25"
           >
-            {saving ? (
+            {mut.isPending ? (
               <Loader2 className="w-4 h-4 animate-spin" />
             ) : saved ? (
               <CheckCircle className="w-4 h-4" />
             ) : (
               <Save className="w-4 h-4" />
             )}
-            {saving ? "Saving..." : saved ? "Saved!" : "Save Settings"}
+            {mut.isPending ? "Saving..." : saved ? "Saved!" : "Save Settings"}
           </button>
         </div>
 
-        {/* Right: flag distribution */}
         <div className="space-y-5">
           <motion.div
             initial={{ opacity: 0, y: 15 }}
@@ -157,28 +189,35 @@ export default function Alerts() {
             className="bg-white/3 border border-white/8 rounded-2xl p-6"
           >
             <h3 className="text-white font-bold text-sm mb-5">Flag Distribution</h3>
-            <div className="space-y-4">
-              {mockFlagDistribution.map((f, i) => (
-                <div key={f.type}>
-                  <div className="flex items-center justify-between text-xs mb-1.5">
-                    <span className="font-mono text-white/60">{f.type.replace(/_/g, " ")}</span>
-                    <span className="font-bold text-white/80">{f.count}</span>
+            {!getStoredApiKey() ? (
+              <p className="text-white/30 text-sm">Add an API key to see aggregate stats.</p>
+            ) : statsQ.isLoading ? (
+              <Loader2 className="w-5 h-5 animate-spin text-white/30" />
+            ) : (
+              <div className="space-y-4">
+                {Object.entries(byType).map(([type, count], i) => (
+                  <div key={type}>
+                    <div className="flex items-center justify-between text-xs mb-1.5">
+                      <span className="font-mono text-white/60">{type.replace(/_/g, " ")}</span>
+                      <span className="font-bold text-white/80">{count}</span>
+                    </div>
+                    <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
+                      <motion.div
+                        initial={{ width: 0 }}
+                        animate={{ width: `${(Number(count) / maxCount) * 100}%` }}
+                        transition={{ delay: 0.3 + i * 0.1, duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+                        className="h-full rounded-full bg-red-500"
+                      />
+                    </div>
                   </div>
-                  <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
-                    <motion.div
-                      initial={{ width: 0 }}
-                      animate={{ width: `${(f.count / 23) * 100}%` }}
-                      transition={{ delay: 0.3 + i * 0.1, duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-                      className="h-full rounded-full"
-                      style={{ background: f.color }}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+                {Object.keys(byType).length === 0 && (
+                  <p className="text-white/30 text-sm">No flags recorded yet.</p>
+                )}
+              </div>
+            )}
           </motion.div>
 
-          {/* Recent alerts */}
           <motion.div
             initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
@@ -186,22 +225,9 @@ export default function Alerts() {
             className="bg-white/3 border border-white/8 rounded-2xl p-6"
           >
             <h3 className="text-white font-bold text-sm mb-5">Recent Alerts Sent</h3>
-            <div className="space-y-3">
-              {[
-                { type: "hallucination", agent: "support-bot", time: "10:22", severity: "high" },
-                { type: "error_swallowed", agent: "email-agent", time: "10:17", severity: "high" },
-                { type: "latency_spike", agent: "data-pipeline", time: "08:31", severity: "medium" },
-              ].map((alert, i) => (
-                <div key={i} className="flex items-center gap-3 p-3 bg-white/3 rounded-xl">
-                  <AlertTriangle className={`w-4 h-4 flex-shrink-0 ${alert.severity === "high" ? "text-red-400" : "text-amber-400"}`} />
-                  <div className="flex-1 min-w-0">
-                    <div className="text-white/70 text-xs font-medium font-mono">{alert.type.replace(/_/g, " ")}</div>
-                    <div className="text-white/30 text-[10px]">{alert.agent}</div>
-                  </div>
-                  <div className="text-white/25 text-[10px] font-mono">{alert.time}</div>
-                </div>
-              ))}
-            </div>
+            <p className="text-white/25 text-xs">
+              Delivery logs are not stored in MVP. Use your email provider or Slack channel history.
+            </p>
           </motion.div>
         </div>
       </div>

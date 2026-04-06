@@ -47,3 +47,12 @@ Thumbs.db
 # Replit
 .cache/
 .local/
+
+# Secrets & local env
+.env
+.env.local
+.env.*.local
+*firebase-adminsdk*.json
+agentwatch-api/venv/
+**/__pycache__/
+*.pyc

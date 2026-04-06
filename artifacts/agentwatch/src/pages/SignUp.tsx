@@ -1,12 +1,14 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { useLocation } from "wouter";
-import { Shield, Eye, EyeOff, Loader2, FlaskConical, AlertTriangle, Cpu, Lock, Activity } from "lucide-react";
+import { Eye, EyeOff, Loader2, FlaskConical, AlertTriangle, Cpu, Lock, Activity } from "lucide-react";
+import { BrandLogo } from "../components/BrandLogo";
 import { useAuth } from "../lib/auth-context";
+import { isFirebaseConfigured } from "../lib/firebase";
 
 export default function SignUp() {
   const [, navigate] = useLocation();
-  const { signUp, signInWithGoogle, isDemoMode } = useAuth();
+  const { signUp, signInWithGoogle } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPw, setShowPw] = useState(false);
@@ -55,8 +57,8 @@ export default function SignUp() {
 
         <div className="relative z-10 flex flex-col h-full p-10">
           <button onClick={() => navigate("/")} className="flex items-center gap-2.5 mb-auto group w-fit">
-            <div className="w-8 h-8 rounded-lg bg-red-600 flex items-center justify-center glow-red group-hover:bg-red-500 transition-colors">
-              <Shield className="w-4 h-4 text-white" />
+            <div className="w-8 h-8 rounded-lg overflow-hidden flex items-center justify-center glow-red ring-1 ring-white/10 bg-white/[0.03] group-hover:ring-red-500/40 transition-colors">
+              <BrandLogo size={30} className="w-[1.875rem] h-[1.875rem]" />
             </div>
             <span className="font-black text-white text-lg">AgentWatch</span>
           </button>
@@ -75,7 +77,7 @@ export default function SignUp() {
             <div className="space-y-3">
               {[
                 { icon: <Activity className="w-3.5 h-3.5" />, text: "Real-time trace monitoring" },
-                { icon: <Cpu className="w-3.5 h-3.5" />, text: "AI-powered deep analysis" },
+                { icon: <Cpu className="w-3.5 h-3.5" />, text: "LLM analysis of traces" },
                 { icon: <Lock className="w-3.5 h-3.5" />, text: "Secure — your keys never stored" },
               ].map((item, i) => (
                 <motion.div
@@ -126,8 +128,8 @@ export default function SignUp() {
           className="w-full max-w-md relative z-10"
         >
           <div className="flex lg:hidden items-center gap-2.5 mb-8">
-            <div className="w-8 h-8 rounded-lg bg-red-600 flex items-center justify-center glow-red">
-              <Shield className="w-4 h-4 text-white" />
+            <div className="w-8 h-8 rounded-lg overflow-hidden flex items-center justify-center glow-red ring-1 ring-white/10 bg-white/[0.03]">
+              <BrandLogo size={30} className="w-[1.875rem] h-[1.875rem]" />
             </div>
             <span className="font-black text-white text-lg">AgentWatch</span>
           </div>
@@ -135,7 +137,7 @@ export default function SignUp() {
           <h1 className="text-2xl font-black text-white mb-1">Create your account</h1>
           <p className="text-white/40 text-sm mb-8">Free forever for side projects</p>
 
-          {isDemoMode && (
+          {!isFirebaseConfigured && (
             <motion.div
               initial={{ opacity: 0, scale: 0.97 }}
               animate={{ opacity: 1, scale: 1 }}
@@ -143,8 +145,10 @@ export default function SignUp() {
             >
               <FlaskConical className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
               <div>
-                <p className="text-amber-400 text-xs font-bold mb-0.5">Demo Mode</p>
-                <p className="text-amber-400/65 text-xs leading-relaxed">Firebase isn't configured yet. Enter any email &amp; password to create a demo account.</p>
+                <p className="text-amber-400 text-xs font-bold mb-0.5">Configuration required</p>
+                <p className="text-amber-400/65 text-xs leading-relaxed">
+                  Set VITE_FIREBASE_* and VITE_API_URL in <span className="font-mono">.env.local</span>.
+                </p>
               </div>
             </motion.div>
           )}

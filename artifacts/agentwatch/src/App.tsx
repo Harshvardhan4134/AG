@@ -6,6 +6,8 @@ import { AuthProvider, useAuth } from "./lib/auth-context";
 import Landing from "./pages/Landing";
 import SignIn from "./pages/SignIn";
 import SignUp from "./pages/SignUp";
+import ForgotPassword from "./pages/ForgotPassword";
+import Documentation from "./pages/Documentation";
 import Dashboard from "./pages/Dashboard";
 import Traces from "./pages/Traces";
 import TraceDetail from "./pages/TraceDetail";
@@ -43,6 +45,8 @@ function Router() {
       <Route path="/" component={Landing} />
       <Route path="/signin" component={SignIn} />
       <Route path="/signup" component={SignUp} />
+      <Route path="/forgot-password" component={ForgotPassword} />
+      <Route path="/docs" component={Documentation} />
       <Route path="/dashboard">
         {() => (
           <ProtectedRoute>

@@ -1,21 +1,35 @@
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { useLocation } from "wouter";
-import { Search, Filter, ChevronRight } from "lucide-react";
+import { Search, Filter, ChevronRight, Loader2 } from "lucide-react";
 import DashboardLayout from "../components/DashboardLayout";
-import { mockRecentRuns } from "../lib/mock-data";
+import { fetchTraces, getStoredApiKey } from "../lib/api";
 
 export default function Traces() {
   const [, navigate] = useLocation();
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<"all" | "flagged" | "ok">("all");
+  const hasKey = !!getStoredApiKey();
 
-  const filtered = mockRecentRuns.filter((r) => {
+  const { data, isLoading, error } = useQuery({
+    queryKey: ["traces", filter],
+    queryFn: () =>
+      fetchTraces({
+        limit: 100,
+        offset: 0,
+        status: filter === "all" ? undefined : filter,
+      }),
+    enabled: hasKey,
+    retry: 1,
+  });
+
+  const runs = data?.traces ?? [];
+  const filtered = runs.filter((r) => {
+    const q = search.toLowerCase();
     const matchSearch =
-      r.run_id.includes(search) || r.agent_name.includes(search);
-    const matchFilter =
-      filter === "all" || r.status === filter;
-    return matchSearch && matchFilter;
+      !q || r.run_id.toLowerCase().includes(q) || r.agent_name.toLowerCase().includes(q);
+    return matchSearch;
   });
 
   return (
@@ -25,7 +39,20 @@ export default function Traces() {
         <p className="text-white/40 text-sm mt-1">All agent run traces · sorted by latest</p>
       </div>
 
-      {/* Filters */}
+      {!hasKey && (
+        <div className="mb-6 p-4 rounded-xl border border-amber-500/25 bg-amber-500/5 text-amber-200/90 text-sm">
+          Store an API key from{" "}
+          <button type="button" className="underline font-medium" onClick={() => navigate("/dashboard/keys")}>
+            API Keys
+          </button>{" "}
+          to load traces.
+        </div>
+      )}
+
+      {error && (
+        <div className="mb-4 text-red-400 text-sm">{(error as Error).message}</div>
+      )}
+
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
@@ -46,6 +73,7 @@ export default function Traces() {
           {(["all", "flagged", "ok"] as const).map((f) => (
             <button
               key={f}
+              type="button"
               onClick={() => setFilter(f)}
               className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
                 filter === f
@@ -64,11 +92,10 @@ export default function Traces() {
 
         <div className="flex items-center gap-2 text-xs text-white/30">
           <Filter className="w-3.5 h-3.5" />
-          {filtered.length} runs
+          {isLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : `${filtered.length} runs`}
         </div>
       </motion.div>
 
-      {/* Table */}
       <motion.div
         initial={{ opacity: 0, y: 15 }}
         animate={{ opacity: 1, y: 0 }}
@@ -92,7 +119,7 @@ export default function Traces() {
                 initial={{ opacity: 0, x: -10 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: i * 0.04 }}
-                onClick={() => navigate(`/dashboard/traces/${run.run_id}`)}
+                onClick={() => navigate(`/dashboard/traces/${encodeURIComponent(run.run_id)}`)}
                 className="border-b border-white/4 hover:bg-white/3 cursor-pointer transition-colors group"
               >
                 <td className="px-5 py-4">
@@ -104,14 +131,14 @@ export default function Traces() {
                   </div>
                 </td>
                 <td className="px-5 py-4 font-mono text-xs text-white/50 group-hover:text-white/70 transition-colors">
-                  {run.run_id}
+                  {run.run_id.slice(0, 20)}…
                 </td>
                 <td className="px-5 py-4 text-xs text-white/70">{run.agent_name}</td>
                 <td className="px-5 py-4 text-xs text-white/50">{run.steps}</td>
                 <td className="px-5 py-4 font-mono text-xs text-white/50">{run.latency_ms}ms</td>
                 <td className="px-5 py-4 text-xs text-white/30">—</td>
                 <td className="px-5 py-4 text-xs text-white/30">
-                  {new Date(run.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                  {run.created_at ? new Date(run.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "—"}
                 </td>
                 <td className="px-5 py-4">
                   {run.flags.length > 0 ? (
@@ -141,7 +168,7 @@ export default function Traces() {
           </tbody>
         </table>
 
-        {filtered.length === 0 && (
+        {filtered.length === 0 && hasKey && !isLoading && (
           <div className="text-center py-12 text-white/30 text-sm">
             No traces match your search.
           </div>
