@@ -1,13 +1,19 @@
 {
   "name": "agentwatch-io",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "AgentWatch JavaScript SDK (trace LLM calls to AgentWatch API)",
   "license": "MIT",
   "type": "module",
-  "main": "./src/index.js",
+  "main": "./register.cjs",
   "exports": {
-    ".": "./src/index.js",
+    ".": {
+      "require": "./register.cjs",
+      "import": "./src/index.js"
+    },
     "./register": "./register.cjs"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   }
 }
 

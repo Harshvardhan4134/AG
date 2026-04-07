@@ -312,6 +312,46 @@ def query_traces_for_user(
     return page, total
 
 
+def query_flat_traces_for_user(
+    user_id: str, limit: int = 50, offset: int = 0, status: str | None = None
+) -> tuple[list[dict[str, Any]], int]:
+    """One row per trace document (no run grouping) — matches stat counts and fixes empty dashboard tables."""
+    q = db.collection("traces").where("user_id", "==", user_id).stream()
+    docs = list(q)
+    docs.sort(key=_firestore_created_ts, reverse=True)
+    rows = [_doc_to_dict(d) for d in docs]
+    if status:
+        rows = [r for r in rows if (r.get("status") or "ok") == status]
+    total = len(rows)
+    page = rows[offset : offset + limit]
+
+    flag_counts: dict[str, int] = {}
+    fq = db.collection("flags").where("user_id", "==", user_id).stream()
+    for fd in fq:
+        f = _doc_to_dict(fd)
+        tid = f.get("trace_id")
+        if tid:
+            flag_counts[tid] = flag_counts.get(tid, 0) + 1
+
+    out: list[dict[str, Any]] = []
+    for r in page:
+        tid = r.get("id")
+        out.append(
+            {
+                "trace_id": tid,
+                "run_id": str(r.get("run_id") or ""),
+                "agent_name": r.get("agent_name") or "default",
+                "model": r.get("model") or "",
+                "latency_ms": int(r.get("latency_ms") or 0),
+                "status": r.get("status") or "ok",
+                "created_at": _serialize_value(r.get("created_at")) if r.get("created_at") is not None else "",
+                "step_index": int(r.get("step_index") or 0),
+                "flags_count": flag_counts.get(tid, 0),
+            }
+        )
+    return out, total
+
+
 def get_run_detail(user_id: str, run_id: str) -> dict[str, Any] | None:
     tq = db.collection("traces").where("user_id", "==", user_id).where("run_id", "==", run_id).stream()
     traces = sorted(

@@ -125,25 +125,48 @@ export async function fetchStats() {
   }>;
 }
 
-export async function fetchTraces(params?: { limit?: number; offset?: number; status?: string }) {
+export type TraceRunRow = {
+  run_id: string;
+  agent_name: string;
+  status: string;
+  steps: number;
+  latency_ms: number;
+  created_at: string;
+  flags: Array<{ flag_type: string; severity: string }>;
+};
+
+export type TraceFlatRow = {
+  trace_id?: string;
+  run_id: string;
+  agent_name: string;
+  model: string;
+  status: string;
+  step_index: number;
+  latency_ms: number;
+  created_at: string;
+  flags_count: number;
+};
+
+export async function fetchTraces(params?: {
+  limit?: number;
+  offset?: number;
+  status?: string;
+  /** One row per trace document (matches stats; fixes empty table when grouped runs were wrong). */
+  flat?: boolean;
+}) {
   const q = new URLSearchParams();
   if (params?.limit != null) q.set("limit", String(params.limit));
   if (params?.offset != null) q.set("offset", String(params.offset));
   if (params?.status) q.set("status", params.status);
+  if (params?.flat) q.set("flat", "1");
   const r = await fetch(`${API_BASE}/v1/traces?${q}`, { headers: awHeaders() });
   if (r.status === 401) throw new Error("Invalid API key");
   if (!r.ok) throw new Error(await r.text());
   return r.json() as Promise<{
-    traces: Array<{
-      run_id: string;
-      agent_name: string;
-      status: string;
-      steps: number;
-      latency_ms: number;
-      created_at: string;
-      flags: Array<{ flag_type: string; severity: string }>;
-    }>;
+    traces: Array<TraceRunRow | TraceFlatRow>;
     total: number;
+    count?: number;
+    flat?: boolean;
   }>;
 }
 

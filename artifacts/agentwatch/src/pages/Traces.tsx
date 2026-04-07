@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 import { useLocation } from "wouter";
 import { Search, Filter, ChevronRight, Loader2 } from "lucide-react";
 import DashboardLayout from "../components/DashboardLayout";
-import { fetchTraces, getStoredApiKey } from "../lib/api";
+import { fetchTraces, getStoredApiKey, type TraceFlatRow } from "../lib/api";
 
 export default function Traces() {
   const [, navigate] = useLocation();
@@ -13,22 +13,29 @@ export default function Traces() {
   const hasKey = !!getStoredApiKey();
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ["traces", filter],
+    queryKey: ["traces", filter, "flat"],
     queryFn: () =>
       fetchTraces({
         limit: 100,
         offset: 0,
         status: filter === "all" ? undefined : filter,
+        flat: true,
       }),
     enabled: hasKey,
     retry: 1,
   });
 
   const runs = data?.traces ?? [];
+  const isFlat = (r: (typeof runs)[number]): r is TraceFlatRow =>
+    typeof (r as TraceFlatRow).flags_count === "number";
   const filtered = runs.filter((r) => {
     const q = search.toLowerCase();
+    const rid = (r.run_id || "").toLowerCase();
     const matchSearch =
-      !q || r.run_id.toLowerCase().includes(q) || r.agent_name.toLowerCase().includes(q);
+      !q ||
+      rid.includes(q) ||
+      r.agent_name.toLowerCase().includes(q) ||
+      (isFlat(r) && (r.model || "").toLowerCase().includes(q));
     return matchSearch;
   });
 
@@ -105,7 +112,7 @@ export default function Traces() {
         <table className="w-full">
           <thead>
             <tr className="border-b border-white/5">
-              {["Status", "Run ID", "Agent", "Steps", "Latency", "Tokens", "Time", "Issues", ""].map((h) => (
+              {["Status", "Run ID", "Agent", "Model", "Step", "Latency", "Time", "Flags", ""].map((h) => (
                 <th key={h} className="text-left text-[11px] text-white/30 font-medium px-5 py-3 uppercase tracking-wider">
                   {h}
                 </th>
@@ -115,11 +122,15 @@ export default function Traces() {
           <tbody>
             {filtered.map((run, i) => (
               <motion.tr
-                key={run.run_id}
+                key={isFlat(run) ? run.trace_id || `${run.run_id}-${i}` : run.run_id}
                 initial={{ opacity: 0, x: -10 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: i * 0.04 }}
-                onClick={() => navigate(`/dashboard/traces/${encodeURIComponent(run.run_id)}`)}
+                onClick={() =>
+                  navigate(
+                    `/dashboard/traces/${encodeURIComponent(run.run_id || (isFlat(run) ? run.trace_id || "" : ""))}`
+                  )
+                }
                 className="border-b border-white/4 hover:bg-white/3 cursor-pointer transition-colors group"
               >
                 <td className="px-5 py-4">
@@ -131,17 +142,27 @@ export default function Traces() {
                   </div>
                 </td>
                 <td className="px-5 py-4 font-mono text-xs text-white/50 group-hover:text-white/70 transition-colors">
-                  {run.run_id.slice(0, 20)}…
+                  {run.run_id ? `${run.run_id.slice(0, 20)}…` : isFlat(run) ? String(run.trace_id || "").slice(0, 12) : "—"}
                 </td>
                 <td className="px-5 py-4 text-xs text-white/70">{run.agent_name}</td>
-                <td className="px-5 py-4 text-xs text-white/50">{run.steps}</td>
+                <td className="px-5 py-4 text-xs text-white/50 font-mono">
+                  {isFlat(run) ? run.model || "—" : "—"}
+                </td>
+                <td className="px-5 py-4 text-xs text-white/50">
+                  {isFlat(run) ? run.step_index : "steps" in run ? run.steps : "—"}
+                </td>
                 <td className="px-5 py-4 font-mono text-xs text-white/50">{run.latency_ms}ms</td>
-                <td className="px-5 py-4 text-xs text-white/30">—</td>
                 <td className="px-5 py-4 text-xs text-white/30">
                   {run.created_at ? new Date(run.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "—"}
                 </td>
                 <td className="px-5 py-4">
-                  {run.flags.length > 0 ? (
+                  {isFlat(run) ? (
+                    run.flags_count > 0 ? (
+                      <span className="text-amber-400/90 text-xs font-mono">{run.flags_count}</span>
+                    ) : (
+                      <span className="text-white/20 text-xs">0</span>
+                    )
+                  ) : "flags" in run && run.flags.length > 0 ? (
                     <div className="flex flex-wrap gap-1">
                       {run.flags.map((f, fi) => (
                         <span

@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 import logging
+import os
 import uuid
 from typing import Any, Optional
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 load_dotenv()
 
@@ -27,6 +28,7 @@ from database import (
     get_user_from_key,
     list_api_keys_for_user,
     mark_alert_sent_for_run,
+    query_flat_traces_for_user,
     query_traces_for_user,
     save_flag,
     save_trace,
@@ -69,6 +71,16 @@ class TraceEvent(BaseModel):
     groq_completion_time_ms: Optional[int] = None
     groq_request_id: Optional[str] = None
     content_mode: bool = False
+
+    @model_validator(mode="after")
+    def _ensure_run_id(self) -> "TraceEvent":
+        if not self.run_id or not str(self.run_id).strip():
+            self.run_id = str(uuid.uuid4())
+        return self
+
+
+# Only run LLM judge when rule confidence is below this (high-confidence rules stand alone).
+JUDGE_CONFIDENCE_THRESHOLD = 0.85
 
 
 class UserSyncBody(BaseModel):
@@ -235,16 +247,35 @@ def post_trace(event: TraceEvent, authorization: str | None = Header(None)) -> A
         avg_latency = get_avg_latency(str(user_id), event.agent_name)
         flags = run_all_checks(trace_data, avg_latency, content_mode=event.content_mode)
 
+        logger.info("[AgentWatch] Checks ran. Flags found: %s", len(flags))
+        for f in flags:
+            logger.info(
+                "  → %s (%s) conf=%s: %s",
+                f.get("flag_type"),
+                f.get("severity"),
+                f.get("confidence", "—"),
+                (f.get("reason") or "")[:200],
+            )
+
         analysis: dict[str, Any] | None = None
+        flags_for_judge = [
+            f
+            for f in flags
+            if float(f.get("confidence", 0.5)) < JUDGE_CONFIDENCE_THRESHOLD
+        ]
+        dcfg = event.deep_analysis_config or {}
+        if flags_for_judge and dcfg.get("enabled"):
+            analysis = run_deep_analysis(trace_data, flags_for_judge, dcfg)
+
         if flags:
-            analysis = run_deep_analysis(trace_data, flags, event.deep_analysis_config)
             for fl in flags:
+                need_judge = float(fl.get("confidence", 0.5)) < JUDGE_CONFIDENCE_THRESHOLD
                 flag_data = {
                     "user_id": user_id,
                     "trace_id": saved_trace["id"],
                     "run_id": event.run_id,
                     **fl,
-                    "deep_analysis": analysis,
+                    "deep_analysis": analysis if need_judge and analysis else None,
                 }
                 save_flag(flag_data)
 
@@ -257,7 +288,14 @@ def post_trace(event: TraceEvent, authorization: str | None = Header(None)) -> A
             "run_id": event.run_id,
             "status": "flagged" if flags else "ok",
             "flags_count": len(flags),
-            "flags": [{"type": f["flag_type"], "severity": f["severity"]} for f in flags],
+            "flags": [
+                {
+                    "type": f["flag_type"],
+                    "severity": f["severity"],
+                    "confidence": f.get("confidence"),
+                }
+                for f in flags
+            ],
             "message": "Trace recorded and analysed",
         }
     except HTTPException:
@@ -273,6 +311,7 @@ def list_traces(
     limit: int = 50,
     offset: int = 0,
     status: str | None = None,
+    flat: bool = False,
 ) -> Any:
     try:
         aw_key = _get_bearer_key(authorization)
@@ -282,8 +321,28 @@ def list_traces(
     if not row:
         raise HTTPException(status_code=401, detail="Invalid API key")
     uid = str(row.get("user_id"))
+    if flat:
+        traces, total = query_flat_traces_for_user(uid, limit=limit, offset=offset, status=status)
+        return {"traces": traces, "total": total, "count": total, "flat": True}
     traces, total = query_traces_for_user(uid, limit=limit, offset=offset, status=status)
-    return {"traces": traces, "total": total}
+    return {"traces": traces, "total": total, "count": total, "flat": False}
+
+
+@app.get("/v1/debug/traces")
+def debug_traces(authorization: str | None = Header(None)) -> Any:
+    """Debug only: set AGENTWATCH_DEBUG=1 on the API server."""
+    if os.environ.get("AGENTWATCH_DEBUG", "").strip() != "1":
+        raise HTTPException(status_code=404, detail="Not found")
+    try:
+        aw_key = _get_bearer_key(authorization)
+    except HTTPException:
+        raise
+    row = get_user_from_key(aw_key)
+    if not row:
+        return {"user_found": False, "trace_count": 0, "sample": []}
+    uid = str(row.get("user_id"))
+    flat, total = query_flat_traces_for_user(uid, limit=3, offset=0)
+    return {"user_found": True, "trace_count": total, "sample": flat}
 
 
 @app.get("/v1/traces/{run_id}")

@@ -30,39 +30,141 @@ def _tool_error_text(tc: Any) -> str:
     return str(tc).lower()
 
 
+def _normalize_for_match(s: str) -> str:
+    return re.sub(r"\s+", " ", (s or "").lower()).strip()
+
+
+def _digits_normalized(s: str) -> str:
+    return re.sub(r"\D+", "", s or "")
+
+
+def _token_grounded_in_input(token: str, inp_n: str, inp_raw: str) -> bool:
+    """True if this invented token is actually echoed from the user message."""
+    t = (token or "").strip()
+    if not t:
+        return True
+    tl = t.lower()
+    if tl in inp_n or re.sub(r"\s+", "", tl) in re.sub(r"\s+", "", inp_n):
+        return True
+    # Same dollar amount: $45 vs 45.00 in input
+    if "$" in t or re.search(r"\d+\.\d{2}", t):
+        dig = _digits_normalized(t)
+        if dig and dig == _digits_normalized(inp_raw):
+            return True
+        if dig and dig in _digits_normalized(inp_raw):
+            return True
+    # Long numeric id echoed
+    if t.isdigit() and t in inp_raw:
+        return True
+    return False
+
+
+def _invented_specifics_in_output_not_input(inp: str, out: str) -> list[str]:
+    """Find concrete invented facts in output (money, long ids, order-style tokens) absent from input."""
+    inp_n = _normalize_for_match(inp)
+    out_raw = out or ""
+    found: list[str] = []
+
+    # USD amounts like $45, $45.00, $1,234.56
+    for m in re.finditer(r"\$\s*\d{1,3}(?:,\d{3})*(?:\.\d{2})?|\$\d+(?:\.\d{2})?", out_raw):
+        token = m.group(0).replace(" ", "")
+        if _token_grounded_in_input(token, inp_n, inp):
+            continue
+        if token.lower() not in inp_n and re.sub(r"\s+", "", token.lower()) not in re.sub(
+            r"\s+", "", inp_n
+        ):
+            found.append(token)
+
+    # Order / confirmation IDs (ORD-12345, #12345678, order 12345678)
+    for m in re.finditer(
+        r"\b(?:ord|order|ticket|confirmation|ref(?:und)?)\s*[#:]?\s*[A-Z0-9-]{6,}\b",
+        out_raw,
+        re.IGNORECASE,
+    ):
+        frag = m.group(0)
+        if _token_grounded_in_input(frag, inp_n, inp):
+            continue
+        if frag.lower() not in inp_n:
+            found.append(frag.strip())
+
+    # Standalone long digit runs (likely invented transaction / card tail / id) not in input
+    for m in re.finditer(r"\b\d{5,}\b", out_raw):
+        num = m.group(0)
+        if num in inp_n or num in inp:
+            continue
+        found.append(num)
+
+    # Dedupe preserving order
+    seen: set[str] = set()
+    out_list: list[str] = []
+    for x in found:
+        key = x.lower()
+        if key not in seen:
+            seen.add(key)
+            out_list.append(x)
+    return out_list
+
+
 def check_hallucination(trace: dict[str, Any]) -> dict[str, Any] | None:
+    """Flag when output invents concrete specifics (amounts/IDs) not grounded in input; no tools."""
     tool_calls = _tool_calls_as_list(trace)
-    out = (trace.get("output") or "").lower()
-    action_words = [
-        "approved",
-        "confirmed",
-        "verified",
-        "processed",
-        "completed",
-        "refunded",
-        "scheduled",
-        "booked",
-        "cancelled",
-        "sent",
-        "created",
-        "updated",
-        "deleted",
-        "transferred",
-        "paid",
-    ]
     if tool_calls:
         return None
-    for w in action_words:
-        if re.search(r"\b" + re.escape(w) + r"\b", out):
-            return {
-                "flag_type": "hallucination",
-                "severity": "high",
-                "reason": (
-                    f"Agent claimed an action was completed (detected word: '{w}') "
-                    "but no tool calls were made to verify or execute it"
-                ),
-            }
-    return None
+
+    inp = str(trace.get("input") or "")
+    out = str(trace.get("output") or "")
+    if not out.strip():
+        return None
+
+    invented = _invented_specifics_in_output_not_input(inp, out)
+    if not invented:
+        return None
+
+    out_l = out.lower()
+    claim_cues = (
+        "refund",
+        "processed",
+        "completed",
+        "approved",
+        "confirmed",
+        "charged",
+        "paid",
+        "credited",
+        "debited",
+        "order",
+        "ticket",
+        "confirmation",
+        "transaction",
+        "balance",
+        "account",
+        "transfer",
+        "shipped",
+        "delivered",
+        "booking",
+        "reservation",
+    )
+    if not any(re.search(r"\b" + re.escape(c) + r"\b", out_l) for c in claim_cues):
+        return None
+
+    preview = ", ".join(invented[:3])
+    # Confidence: dollar amounts highest, invented IDs next, long digits lower
+    conf = 0.6
+    if any("$" in x for x in invented):
+        conf = max(conf, 0.9)
+    if any(re.search(r"(?i)(ord|order|ticket|confirmation)", x) for x in invented):
+        conf = max(conf, 0.85)
+    if conf < 0.85 and any(x.isdigit() and len(x) >= 5 for x in invented):
+        conf = max(conf, 0.7)
+
+    return {
+        "flag_type": "hallucination",
+        "severity": "high",
+        "confidence": round(min(conf, 1.0), 2),
+        "reason": (
+            "Output contains specific values (e.g. amounts or IDs) that do not appear in the input "
+            f"and no tool calls were recorded to ground them: [{preview}]"
+        ),
+    }
 
 
 def check_error_swallowed(trace: dict[str, Any]) -> dict[str, Any] | None:
@@ -101,11 +203,29 @@ def check_error_swallowed(trace: dict[str, Any]) -> dict[str, Any] | None:
     ]
     if any(w in out for w in acknowledgement_words):
         return None
+    # Require a *positive* false success signal, not just silence
+    positive = (
+        "approved",
+        "confirmed",
+        "success",
+        "successful",
+        "done",
+        "processed",
+        "completed",
+        "all set",
+        "here you go",
+        "created",
+        "updated",
+    )
+    if not any(p in out for p in positive):
+        return None
     return {
         "flag_type": "error_swallowed",
         "severity": "high",
+        "confidence": 0.9,
         "reason": (
-            "A tool call returned an error but the agent continued without acknowledging the failure"
+            "A tool call returned an error but the assistant replied with a positive confirmation "
+            "without acknowledging the failure"
         ),
     }
 
@@ -114,12 +234,24 @@ def check_latency_spike(trace: dict[str, Any], avg_latency: float) -> dict[str, 
     if avg_latency <= 0 or avg_latency < 5:
         return None
     lat = float(trace.get("latency_ms") or 0)
-    if lat > avg_latency * 3.0:
+    ratio = lat / avg_latency if avg_latency else 0
+    if ratio >= 5.0:
         return {
             "flag_type": "latency_spike",
             "severity": "medium",
+            "confidence": 0.95,
             "reason": (
-                f"Step took {lat:.0f}ms which is {round(lat / avg_latency, 1)}x longer than the average "
+                f"Step took {lat:.0f}ms which is {round(ratio, 1)}x longer than the average "
+                f"{round(avg_latency)}ms for this agent"
+            ),
+        }
+    if ratio >= 3.0:
+        return {
+            "flag_type": "latency_spike",
+            "severity": "medium",
+            "confidence": 0.7,
+            "reason": (
+                f"Step took {lat:.0f}ms which is {round(ratio, 1)}x longer than the average "
                 f"{round(avg_latency)}ms for this agent"
             ),
         }
@@ -136,6 +268,7 @@ def check_empty_output(trace: dict[str, Any]) -> dict[str, Any] | None:
         return {
             "flag_type": "empty_output",
             "severity": "medium",
+            "confidence": 0.75,
             "reason": "Agent produced an empty output — the LLM call may have failed or returned nothing",
         }
     return None
@@ -266,6 +399,8 @@ def run_all_checks(
         try:
             r = fn(trace)
             if r is not None:
+                if "confidence" not in r:
+                    r["confidence"] = 0.75
                 out.append(r)
         except Exception:
             continue
@@ -273,10 +408,25 @@ def run_all_checks(
 
 
 if __name__ == "__main__":
-    sample = {
-        "output": "Your refund has been approved.",
+    benign = {
+        "input": "What's the status of my ticket?",
+        "output": "Your ticket has been received and we're looking into it.",
         "tool_calls": [],
         "latency_ms": 900,
     }
-    print("hallucination:", check_hallucination(sample))
-    print("all:", run_all_checks(sample, avg_latency=100.0))
+    bad = {
+        "input": "What's the status of my ticket?",
+        "output": "Your refund of $45.00 has been processed. Confirmation ORD-928374651.",
+        "tool_calls": [],
+        "latency_ms": 900,
+    }
+    echo_from_input = {
+        "input": "Refund $45 for order #991",
+        "output": "Your refund of $45 has been processed.",
+        "tool_calls": [],
+        "latency_ms": 900,
+    }
+    print("benign hallucination:", check_hallucination(benign))
+    print("bad hallucination:", check_hallucination(bad))
+    print("echo (should be None):", check_hallucination(echo_from_input))
+    print("all bad:", run_all_checks(bad, avg_latency=100.0))

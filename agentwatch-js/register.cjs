@@ -89,8 +89,11 @@ function wrapChatCompletions(client, provider) {
   cc.create = async function (params, options) {
     const runId = (params && params.aw_run_id) || randomId();
     const an = (params && params.aw_agent_name) || agentName();
+    const clean = { ...(params || {}) };
+    delete clean.aw_run_id;
+    delete clean.aw_agent_name;
     const t0 = Date.now();
-    const resp = await orig(params, options);
+    const resp = await orig(clean, options);
     const latencyMs = Date.now() - t0;
     let out = "";
     try {
@@ -100,9 +103,9 @@ function wrapChatCompletions(client, provider) {
       run_id: runId,
       agent_name: an,
       step_type: "llm_call",
-      input: JSON.stringify((params && params.messages) || []).slice(0, 2000),
+      input: JSON.stringify((clean && clean.messages) || []).slice(0, 2000),
       output: String(out).slice(0, 2000),
-      model: (resp && resp.model) || (params && params.model) || "",
+      model: (resp && resp.model) || (clean && clean.model) || "",
       provider,
       latency_ms: latencyMs,
       tokens: (resp && resp.usage && resp.usage.total_tokens) || 0,
@@ -161,3 +164,21 @@ Module._load = function (request, parent, isMain) {
   } catch (_) {}
   return ret;
 };
+
+initFromEnv();
+
+function init(cfg) {
+  if (cfg && cfg.apiKey) process.env.AGENTWATCH_KEY = cfg.apiKey;
+  if (cfg && cfg.serverUrl) process.env.AGENTWATCH_SERVER_URL = cfg.serverUrl;
+  if (cfg && cfg.agentName) process.env.AGENTWATCH_AGENT_NAME = cfg.agentName;
+  _state.initialized = false;
+  _state.deepConfig = {};
+  initFromEnv();
+}
+
+function watch(client, provider) {
+  initFromEnv();
+  return wrapChatCompletions(client, provider || "openai");
+}
+
+module.exports = { init, watch };

@@ -9,7 +9,7 @@ import {
 import DashboardLayout from "../components/DashboardLayout";
 import { AreaChart, Area, XAxis, YAxis, ResponsiveContainer, Tooltip } from "recharts";
 import { useAuth } from "../lib/auth-context";
-import { fetchStats, fetchTraces, getStoredApiKey } from "../lib/api";
+import { fetchStats, fetchTraces, getStoredApiKey, type TraceFlatRow } from "../lib/api";
 import { mockLatencyData } from "../lib/mock-data";
 
 const staggerChild = {
@@ -35,8 +35,8 @@ export default function Dashboard() {
   });
 
   const tracesQuery = useQuery({
-    queryKey: ["traces", "recent"],
-    queryFn: () => fetchTraces({ limit: 8, offset: 0 }),
+    queryKey: ["traces", "recent", "flat"],
+    queryFn: () => fetchTraces({ limit: 8, offset: 0, flat: true }),
     enabled: hasKey,
     retry: 1,
     // Stats can succeed while /v1/traces fails (e.g. Firestore index). Refetch traces when stats load.
@@ -48,7 +48,7 @@ export default function Dashboard() {
     if (!hasKey || !statsQuery.isSuccess) return;
     const total = statsQuery.data?.total_traces ?? 0;
     if (total > 0) {
-      queryClient.invalidateQueries({ queryKey: ["traces", "recent"] });
+      queryClient.invalidateQueries({ queryKey: ["traces", "recent", "flat"] });
     }
   }, [hasKey, statsQuery.isSuccess, statsQuery.data?.total_traces, queryClient]);
 
@@ -61,6 +61,8 @@ export default function Dashboard() {
   ];
 
   const recentRuns = tracesQuery.data?.traces ?? [];
+  const isFlatRow = (r: (typeof recentRuns)[number]): r is TraceFlatRow =>
+    typeof (r as TraceFlatRow).flags_count === "number";
 
   const initCode = `import agentwatch
 
@@ -226,7 +228,7 @@ agentwatch.init(
           <table className="w-full">
             <thead>
               <tr className="border-b border-white/5">
-                {["Status", "Run ID", "Agent", "Steps", "Duration", "Time", "Flags"].map((h) => (
+                {["Status", "Run ID", "Agent", "Model", "Step", "Duration", "Time", "Flags"].map((h) => (
                   <th key={h} className="text-left text-[11px] text-white/30 font-medium px-5 py-3 uppercase tracking-wider">
                     {h}
                   </th>
@@ -240,7 +242,11 @@ agentwatch.init(
                   initial={{ opacity: 0, x: -10 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: 0.3 + i * 0.05 }}
-                  onClick={() => navigate(`/dashboard/traces/${run.run_id}`)}
+                  onClick={() =>
+                    navigate(
+                      `/dashboard/traces/${encodeURIComponent(run.run_id || (isFlatRow(run) ? run.trace_id || "" : ""))}`
+                    )
+                  }
                   className="border-b border-white/4 hover:bg-white/3 cursor-pointer transition-colors group"
                 >
                   <td className="px-5 py-4">
@@ -260,7 +266,14 @@ agentwatch.init(
                     <span className="text-xs text-white/70">{run.agent_name}</span>
                   </td>
                   <td className="px-5 py-4">
-                    <span className="text-xs text-white/50">{run.steps}</span>
+                    <span className="text-xs text-white/50 font-mono">
+                      {isFlatRow(run) ? run.model || "—" : "—"}
+                    </span>
+                  </td>
+                  <td className="px-5 py-4">
+                    <span className="text-xs text-white/50">
+                      {isFlatRow(run) ? run.step_index : "steps" in run ? run.steps : "—"}
+                    </span>
                   </td>
                   <td className="px-5 py-4">
                     <span className="text-xs font-mono text-white/50">{run.latency_ms}ms</span>
@@ -271,7 +284,13 @@ agentwatch.init(
                     </span>
                   </td>
                   <td className="px-5 py-4">
-                    {run.flags.length > 0 ? (
+                    {isFlatRow(run) ? (
+                      run.flags_count > 0 ? (
+                        <span className="text-amber-400/90 text-xs font-mono">{run.flags_count}</span>
+                      ) : (
+                        <span className="text-white/20 text-xs">0</span>
+                      )
+                    ) : "flags" in run && run.flags.length > 0 ? (
                       <span className={`inline-flex text-[10px] font-mono px-2 py-0.5 rounded border ${
                         run.flags[0].severity === "high"
                           ? "bg-red-600/15 text-red-400 border-red-600/25"
