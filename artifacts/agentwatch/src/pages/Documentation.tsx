@@ -2,22 +2,23 @@ import { motion } from "framer-motion";
 import { useLocation } from "wouter";
 import {
   ArrowLeft, Code2, Cpu, Layers, Bell, LayoutDashboard,
-  GitBranch, Sparkles, Lock, AlertTriangle
+  GitBranch, Sparkles, Lock, AlertTriangle, Terminal,
 } from "lucide-react";
 import { BrandLogo } from "../components/BrandLogo";
 import { useAuth } from "../lib/auth-context";
 
 const sections = [
   { id: "overview", label: "Overview" },
-  { id: "architecture", label: "How it fits together" },
+  { id: "architecture", label: "Architecture" },
   { id: "install", label: "Install" },
-  { id: "instrument", label: "Instrument your agent" },
-  { id: "rules", label: "Rule-based analysis" },
-  { id: "llm-analysis", label: "LLM analysis (judge)" },
+  { id: "instrument", label: "Python: instrument" },
+  { id: "nodejs", label: "Node.js" },
+  { id: "rules", label: "Rule checks" },
+  { id: "llm-analysis", label: "LLM judge" },
   { id: "runs", label: "Runs & steps" },
-  { id: "dashboard", label: "Dashboard & API keys" },
+  { id: "dashboard", label: "Dashboard & keys" },
   { id: "alerts", label: "Alerts" },
-  { id: "reference", label: "init() reference" },
+  { id: "reference", label: "API reference" },
 ];
 
 function Code({ children }: { children: string }) {
@@ -94,9 +95,10 @@ export default function Documentation() {
           className="flex-1 min-w-0 space-y-14 text-white/80 leading-relaxed"
         >
           <div>
-            <h1 className="text-3xl sm:text-4xl font-black text-white mb-3">AgentWatch usage guide</h1>
+            <h1 className="text-3xl sm:text-4xl font-black text-white mb-3">AgentWatch documentation</h1>
             <p className="text-white/45 text-lg">
-              End-to-end reference: tracing, rule checks, optional LLM judge analysis, storage, runs, dashboard, and alerts.
+              Trace LLM calls, run server-side checks, optionally call your own model as a judge, and review everything in
+              the dashboard.
             </p>
           </div>
 
@@ -106,36 +108,41 @@ export default function Documentation() {
               Overview
             </h2>
             <p className="mb-4">
-              AgentWatch captures each LLM step from your Python process, sends it to the AgentWatch API, runs{" "}
-              <strong className="text-white/90">deterministic rule checks</strong> on the server, optionally runs an{" "}
-              <strong className="text-white/90">LLM judge</strong> when a step is flagged, persists traces and flags in
-              Firestore, and can notify you via email or Slack.
+              AgentWatch records each LLM step (input, output, latency, model, optional tool calls) and POSTs it to your{" "}
+              <strong className="text-white/90">AgentWatch API</strong>. The API stores traces in{" "}
+              <strong className="text-white/90">Firestore</strong>, runs <strong className="text-white/90">rule checks</strong>{" "}
+              on every trace, and can run an optional <strong className="text-white/90">LLM judge</strong> using{" "}
+              <strong className="text-white/90">your</strong> OpenAI, Anthropic, or Groq credentials (never stored by
+              AgentWatch). You can receive <strong className="text-white/90">email or Slack</strong> alerts when something is
+              flagged.
             </p>
             <p className="text-white/50 text-sm">
-              The marketing “two lines” are <code className="text-red-400/90">init</code> only — you must{" "}
-              <strong className="text-white/70">wrap your OpenAI, Anthropic, or Groq client</strong> so calls are
-              intercepted (see Instrumentation).
+              The <code className="text-red-400/90">aw_...</code> key identifies <strong className="text-white/70">your</strong>{" "}
+              tenant. It is <strong className="text-white/70">not</strong> your OpenAI or Groq key — those stay in your SDK
+              config or environment for normal LLM calls and (optionally) for the judge.
             </p>
           </section>
 
           <section id="architecture" className="scroll-mt-28">
             <h2 className="text-xl font-bold text-white flex items-center gap-2 mb-4">
               <Cpu className="w-5 h-5 text-red-500" />
-              How it fits together
+              Architecture
             </h2>
             <ul className="list-disc pl-5 space-y-2 text-white/70">
               <li>
-                <strong className="text-white/85">Python SDK</strong> — monkey-patches LLM clients, builds trace payloads,
-                POSTs to <code className="text-white/60">/v1/trace</code> with your AgentWatch API key.
+                <strong className="text-white/85">SDK (Python or Node)</strong> — Wraps your LLM client, builds a trace
+                payload, sends <code className="text-white/60">POST /v1/trace</code> with{" "}
+                <code className="text-white/60">Authorization: Bearer aw_...</code>.
               </li>
               <li>
-                <strong className="text-white/85">API (FastAPI)</strong> — validates key, saves trace, runs rules, optional
-                LLM analysis, saves flags, dispatches alerts (deduplicated per run).
+                <strong className="text-white/85">API (FastAPI)</strong> — Validates the key, saves the trace, runs checks,
+                optionally runs the judge, saves flags, sends alerts (deduplicated per run).
               </li>
               <li>
-                <strong className="text-white/85">Dashboard</strong> — sign in to your account, then use your{" "}
-                <code className="text-white/60">aw_</code> key (saved in the browser) to load traces and runs. Each user
-                has separate keys and data.
+                <strong className="text-white/85">Dashboard (Vite)</strong> — You sign in with Firebase. You paste the same{" "}
+                <code className="text-white/60">aw_...</code> key into the UI so the browser can call{" "}
+                <code className="text-white/60">GET /v1/stats</code> and <code className="text-white/60">GET /v1/traces</code>.
+                Data is scoped to that key&apos;s user — nothing is shared between accounts.
               </li>
             </ul>
           </section>
@@ -145,31 +152,37 @@ export default function Documentation() {
               <Code2 className="w-5 h-5 text-red-500" />
               Install
             </h2>
-            <p className="mb-3 text-white/60 text-sm">From PyPI, or from a clone for local development:</p>
+            <p className="mb-3 text-white/60 text-sm">Python package name on PyPI is <code className="text-white/70">agentwatch-io</code>; import name is still <code className="text-white/70">agentwatch</code>.</p>
             <Code>{`pip install agentwatch-io
 
-# Or editable from repo:
-cd agentwatch-sdk
-pip install -e .
+# Optional: Groq
+pip install groq
 
-# Dependencies: requests (HTTP to AgentWatch API)`}</Code>
+# Editable install from a clone:
+# pip install -e ./agentwatch-sdk`}</Code>
+            <p className="mt-4 text-sm text-white/50">
+              Node: <code className="text-white/60">npm install agentwatch-io</code> (see Node.js below).
+            </p>
           </section>
 
           <section id="instrument" className="scroll-mt-28">
             <h2 className="text-xl font-bold text-white flex items-center gap-2 mb-4">
               <GitBranch className="w-5 h-5 text-red-500" />
-              Instrument your agent
+              Python: instrument your agent
             </h2>
             <p className="mb-4">
-              Call <code className="text-red-400/90">agentwatch.init()</code> once at startup, then wrap the client you
-              use for completions.
+              Call <code className="text-red-400/90">agentwatch.init()</code> once, then{" "}
+              <code className="text-red-400/90">agentwatch.watch(client)</code> on the same client you use for completions.{" "}
+              <code className="text-white/60">init</code> alone does not trace — the wrapper must wrap the code path that calls
+              the model.
             </p>
-            <Code>{`import agentwatch
+            <Code>{`import os
+import agentwatch
 import openai
 
 agentwatch.init(
-    api_key="aw_...",                    # from dashboard → API Keys
-    server_url="https://your-api.com",   # or http://localhost:8000
+    api_key=os.environ["AGENTWATCH_API_KEY"],   # aw_... from Dashboard → API Keys
+    server_url=os.environ["AGENTWATCH_SERVER_URL"],  # HTTPS API base, no trailing slash
     agent_name="support-bot",
 )
 
@@ -179,87 +192,107 @@ resp = client.chat.completions.create(
     model="gpt-4o-mini",
     messages=[{"role": "user", "content": "Hello"}],
 )
-# Each completion is traced asynchronously (non-blocking).`}</Code>
+
+# Short scripts / CLIs: flush so traces are sent before exit
+agentwatch.flush(timeout_s=3.0)`}</Code>
             <p className="mt-4 text-sm text-white/50">
-              For Anthropic: <code className="text-white/60">agentwatch.watch(anthropic.Anthropic())</code> and use{" "}
+              <strong className="text-white/70">Groq:</strong>{" "}
+              <code className="text-white/60">from groq import Groq</code> then{" "}
+              <code className="text-white/60">agentwatch.watch(Groq())</code> and{" "}
+              <code className="text-white/60">chat.completions.create</code>.
+            </p>
+            <p className="mt-3 text-sm text-white/50">
+              <strong className="text-white/70">Anthropic:</strong>{" "}
+              <code className="text-white/60">agentwatch.watch(anthropic.Anthropic())</code> and{" "}
               <code className="text-white/60">messages.create</code>.
             </p>
-            <p className="mt-4 text-sm text-white/50">
-              For Groq (OpenAI-compatible chat API):{" "}
-              <code className="text-white/60">pip install groq</code> then{" "}
-              <code className="text-white/60">agentwatch.watch(Groq())</code> — same{" "}
-              <code className="text-white/60">chat.completions.create</code> shape; traces include Groq timing fields when
-              the API returns them.
+            <p className="mt-6 text-sm text-white/45 border border-white/10 rounded-xl px-4 py-3">
+              <Terminal className="w-4 h-4 inline-block mr-2 text-white/40 align-text-bottom" />
+              <strong className="text-white/75">Optional auto-wrap (one extra import)</strong>
+              <br />
+              After setting <code className="text-white/60">AGENTWATCH_API_KEY</code> and{" "}
+              <code className="text-white/60">AGENTWATCH_SERVER_URL</code>, call{" "}
+              <code className="text-white/60">import agentwatch.auto_instrument as aw; aw.install()</code> to patch new{" "}
+              <code className="text-white/60">OpenAI</code>, <code className="text-white/60">Groq</code>, and{" "}
+              <code className="text-white/60">Anthropic</code> clients without manually calling <code className="text-white/60">watch()</code>.
+              Health: <code className="text-white/60">python -m agentwatch ping</code>.
+            </p>
+          </section>
+
+          <section id="nodejs" className="scroll-mt-28">
+            <h2 className="text-xl font-bold text-white flex items-center gap-2 mb-4">
+              <Terminal className="w-5 h-5 text-red-500" />
+              Node.js
+            </h2>
+            <p className="mb-4 text-sm text-white/60">
+              The npm package is also named <code className="text-white/70">agentwatch-io</code>. Use the{" "}
+              <strong className="text-white/80">register</strong> preload so OpenAI- and Groq-compatible clients are wrapped
+              when those modules load — no edits to your app source in many setups.
+            </p>
+            <Code>{`# .env
+AGENTWATCH_KEY=aw_...
+AGENTWATCH_SERVER_URL=https://your-api.example.com
+NODE_OPTIONS=--require agentwatch-io/register`}</Code>
+            <p className="mt-4 text-sm text-white/45">
+              Use <code className="text-white/60">agentwatch-io/register</code> (not the bare package name) so Node loads the CommonJS preload. For explicit control:{" "}
+              <code className="text-white/60">const {"{ init, watch }"} = require("agentwatch-io");</code>
             </p>
           </section>
 
           <section id="rules" className="scroll-mt-28">
             <h2 className="text-xl font-bold text-white flex items-center gap-2 mb-4">
               <AlertTriangle className="w-5 h-5 text-amber-500" />
-              Rule-based analysis
+              Rule checks
             </h2>
-            <p className="mb-3">
-              Every trace is evaluated on the server with fast, deterministic checks (no AgentWatch LLM cost):
+            <p className="mb-3 text-sm">
+              Checks run on the server for every trace. Each flag includes a <strong className="text-white/85">confidence</strong> score (0–1). The LLM judge only runs for flags below a server threshold (high-confidence rules can stand alone).
             </p>
             <ul className="list-disc pl-5 space-y-2 text-white/70 mb-4">
               <li>
-                <strong className="text-white/85">Hallucination</strong> — action-like language in the model output with
-                no tool calls recorded.
+                <strong className="text-white/85">Hallucination (grounding)</strong> — Output mentions{" "}
+                <strong className="text-white/90">concrete values</strong> (e.g. dollar amounts, long IDs, order-style tokens) that
+                do not appear in the input, with no tool calls to justify them, and the text reads like a factual claim (e.g.
+                refund/processed/approved). Echoing an amount the user already gave is <strong className="text-white/90">not</strong> flagged.
               </li>
               <li>
-                <strong className="text-white/85">Error swallowed</strong> — tool result looks like an error, but the
-                assistant output does not acknowledge failure.
+                <strong className="text-white/85">Error swallowed</strong> — A tool result looks like an error, but the assistant
+                replies with <strong className="text-white/90">positive success language</strong> (approved, done, processed…) without acknowledging the failure.
               </li>
               <li>
-                <strong className="text-white/85">Latency spike</strong> — step latency vs recent rolling average for the
-                same agent (needs enough history).
+                <strong className="text-white/85">Latency spike</strong> — Step latency vs a recent rolling average for the same agent (needs history).
               </li>
               <li>
-                <strong className="text-white/85">Empty output</strong> — blank model output.
+                <strong className="text-white/85">Empty output</strong> — Blank model output.
               </li>
             </ul>
-            <p className="text-sm text-white/45 mb-4">
-              Flags are stored per trace; the run is grouped for the dashboard (see Runs &amp; steps).
-            </p>
-            <p className="mb-2 text-sm text-white/55">
-              <strong className="text-white/80">Content mode</strong> — pass{" "}
-              <code className="text-red-400/90">content_mode=True</code> to{" "}
-              <code className="text-white/60">init()</code> to add four writing-focused checks: repeated sentences / repeated
-              5-word phrases, very short outputs, common prompt-injection phrases in the input, and a simple off-topic
-              heuristic for long outputs.
+            <p className="text-sm text-white/50 mb-2">
+              <strong className="text-white/75">Content mode</strong> — Pass <code className="text-red-400/90">content_mode=True</code> in{" "}
+              <code className="text-white/60">init()</code> to enable extra checks (repetition, very short output, prompt-injection phrases in input, off-topic heuristic).
             </p>
           </section>
 
           <section id="llm-analysis" className="scroll-mt-28">
             <h2 className="text-xl font-bold text-white flex items-center gap-2 mb-4">
               <Sparkles className="w-5 h-5 text-purple-400" />
-              LLM analysis (judge)
+              LLM judge
             </h2>
-            <p className="mb-4">
-              When <strong className="text-white/90">rule checks fire</strong> on a trace, the API can optionally call{" "}
-              <strong className="text-white/90">your</strong> OpenAI, Anthropic, or Groq API with a structured “judge” prompt. It
-              returns JSON: verdict, confidence, what went wrong, root cause, suggested fix. Your LLM key is sent only in
-              the request to your provider from the AgentWatch API process — it is{" "}
-              <strong className="text-white/90">not logged or stored</strong> by AgentWatch.
+            <p className="mb-4 text-sm">
+              When enabled, the API can call <strong className="text-white/90">your</strong> provider with a structured judge prompt. Your key is used only in that request from the API process — it is <strong className="text-white/90">not</strong> persisted by AgentWatch. High-confidence rule flags may skip the judge; lower-confidence flags are more likely to receive judge output.
             </p>
             <Code>{`import os
 
 agentwatch.init(
-    api_key="aw_...",
-    server_url="https://your-api.com",
+    api_key=os.environ["AGENTWATCH_API_KEY"],
+    server_url=os.environ["AGENTWATCH_SERVER_URL"],
     agent_name="my-agent",
     deep_analysis=True,
-    llm_provider="openai",       # or "anthropic" / "groq"
+    llm_provider="openai",
     llm_api_key=os.environ["OPENAI_API_KEY"],
-    llm_model="gpt-4o-mini",     # optional; sensible defaults if omitted
-)
-
-# Groq judge — use your existing Groq key:
-# llm_provider="groq", llm_api_key=os.environ["GROQ_API_KEY"], llm_model="llama-3.3-70b-versatile"
-# (or pass groq_api_key=... instead of llm_api_key)`}</Code>
+    llm_model="gpt-4o-mini",
+)`}</Code>
             <p className="mt-4 text-sm text-white/50">
-              If <code className="text-white/60">deep_analysis</code> is True but no judge API key is set, only rule-based
-              flags run. LLM analysis runs only when there is at least one flag for that trace.
+              Use <code className="text-white/60">llm_provider=&quot;groq&quot;</code> and your Groq key for a Groq judge. If{" "}
+              <code className="text-white/60">deep_analysis</code> is on but no judge key is configured, only rules run.
             </p>
           </section>
 
@@ -269,9 +302,9 @@ agentwatch.init(
               Runs &amp; steps
             </h2>
             <p className="mb-3">
-              Each trace has a <code className="text-red-400/90">run_id</code> (UUID by default). All steps in one agent
-              execution share the same <code className="text-red-400/90">run_id</code> so the dashboard can show a timeline.
-              You can pass <code className="text-white/60">aw_run_id</code> on the OpenAI call to correlate manually.
+              Each trace has a <code className="text-red-400/90">run_id</code>. The API ensures a non-empty ID if the client omits
+              one. Steps that belong to the same logical run should reuse the same <code className="text-white/60">run_id</code>. The
+              dashboard lists <strong className="text-white/85">individual trace rows</strong> (each LLM step) and groups detail by run when you open a run.
             </p>
             <Code>{`client.chat.completions.create(
     aw_run_id="support-ticket-4421",
@@ -287,16 +320,12 @@ agentwatch.init(
               Dashboard &amp; API keys
             </h2>
             <p className="mb-3">
-              <strong className="text-white/85">Sign in</strong> to the dashboard (localhost or your deployed URL). Each
-              account has its own <strong className="text-white/85">API keys</strong> and only sees traces and stats for
-              that account — nothing is shared between users. Under <strong className="text-white/85">API Keys</strong>,
-              create a key and use it in <code className="text-red-400/90">agentwatch.init(api_key=...)</code>. Save the
-              key in the dashboard (browser local storage) so the app can load your data. The AgentWatch key identifies
-              your tenant; it is not your OpenAI/Anthropic key.
+              Sign in, then create an API key under <strong className="text-white/85">API Keys</strong> and paste it into the
+              dashboard so the UI can call the API. The key in the browser must match the key your SDK uses, or stats and traces
+              will disagree.
             </p>
-            <p className="text-sm text-white/45">
-              Set <code className="text-white/60">VITE_API_URL</code> in <code className="text-white/60">.env.local</code>{" "}
-              to your FastAPI base URL.
+            <p className="mb-3 text-sm text-white/50">
+              Deploy the frontend with <code className="text-white/60">VITE_API_URL</code> set to your API base URL (HTTPS, no trailing slash) — e.g. your Cloud Run URL. Add your dashboard origin to Firebase <strong className="text-white/70">Authorized domains</strong> and ensure the API <code className="text-white/60">CORS_ORIGINS</code> includes that origin.
             </p>
           </section>
 
@@ -306,14 +335,12 @@ agentwatch.init(
               Alerts
             </h2>
             <p className="mb-3">
-              In <strong className="text-white/85">Alerts</strong>, configure email (Resend on the server) and/or Slack
-              webhook. The API sends at most one alert per flagged <code className="text-white/60">run_id</code> per user
-              (deduplication). You can restrict which flag types trigger notifications.
+              Configure email (Resend on the server) and/or a Slack webhook in <strong className="text-white/85">Alerts</strong>. At most one notification per flagged <code className="text-white/60">run_id</code> per user (deduplication). You can limit which flag types notify you.
             </p>
           </section>
 
           <section id="reference" className="scroll-mt-28">
-            <h2 className="text-xl font-bold text-white mb-4">agentwatch.init() reference</h2>
+            <h2 className="text-xl font-bold text-white mb-4">agentwatch.init() parameters</h2>
             <div className="overflow-x-auto border border-white/[0.08] rounded-xl">
               <table className="w-full text-sm text-left">
                 <thead>
@@ -324,17 +351,17 @@ agentwatch.init(
                 </thead>
                 <tbody className="text-white/70">
                   {[
-                    ["api_key", 'AgentWatch key starting with aw_ (from dashboard).'],
-                    ["server_url", "FastAPI base URL, no trailing slash."],
-                    ["agent_name", 'Logical name shown in UI (default "default").'],
-                    ["deep_analysis", "Enable LLM judge when flags fire (default False)."],
-                    ["llm_provider", "Judge provider: openai, anthropic, or groq."],
-                    ["llm_api_key", "Provider key for judge (OpenAI / Anthropic / Groq)."],
-                    ["groq_api_key", "Optional; same as putting the Groq key in llm_api_key."],
-                    ["llm_model", "Optional; defaults per provider (e.g. gpt-4o-mini, Haiku, Llama 3.3)."],
-                    ["content_mode", "Extra content-creation rule checks on the server (default False)."],
+                    ["api_key", "AgentWatch key (aw_...) from the dashboard."],
+                    ["server_url", "API base URL, no trailing slash."],
+                    ["agent_name", 'Label in the UI (default "default").'],
+                    ["deep_analysis", "Enable LLM judge for eligible flags (default False)."],
+                    ["llm_provider", '"openai", "anthropic", or "groq" for the judge.'],
+                    ["llm_api_key", "Provider API key for the judge."],
+                    ["groq_api_key", "Optional; alternative to llm_api_key for Groq."],
+                    ["llm_model", "Optional; defaults per provider."],
+                    ["content_mode", "Extra content-focused server checks (default False)."],
                     ["redact_fields", "Optional list of field names to redact in trace text."],
-                    ["silent", "If True, skip console connection messages."],
+                    ["silent", "If True, skip console messages from init."],
                   ].map(([k, d]) => (
                     <tr key={k} className="border-b border-white/[0.05]">
                       <td className="px-4 py-2.5 font-mono text-red-400/90 whitespace-nowrap">{k}</td>
@@ -344,14 +371,16 @@ agentwatch.init(
                 </tbody>
               </table>
             </div>
-            <p className="mt-6 text-sm text-white/40">
-              <code className="text-white/55">agentwatch.watch(client)</code> — returns the same client instance with
-              completions wrapped for tracing.
+            <p className="mt-6 text-sm text-white/45">
+              <code className="text-white/55">agentwatch.watch(client)</code> — wraps the client; returns the same instance.
+            </p>
+            <p className="mt-2 text-sm text-white/45">
+              <code className="text-white/55">agentwatch.flush(timeout_s=3.0)</code> — wait for pending trace uploads (use in short-lived processes).
             </p>
           </section>
 
           <footer className="pt-8 border-t border-white/[0.06] text-center text-white/35 text-sm">
-            AgentWatch · production reliability for AI agents
+            AgentWatch — production monitoring for AI agents
           </footer>
         </motion.article>
       </div>
