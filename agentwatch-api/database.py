@@ -215,24 +215,65 @@ def delete_api_key(user_id: str, key_doc_id: str) -> bool:
     return True
 
 
+def _firestore_created_ts(doc) -> float:
+    """Sort key for trace docs (avoids composite index: user_id + order_by created_at)."""
+    d = doc.to_dict() or {}
+    ca = d.get("created_at")
+    if hasattr(ca, "timestamp"):
+        try:
+            return float(ca.timestamp())
+        except Exception:
+            pass
+    return 0.0
+
+
+def _sort_key_created_at_value(val: Any) -> float:
+    """Stable sort for serialized created_at (ISO string, Timestamp, number)."""
+    if val is None:
+        return 0.0
+    if isinstance(val, (int, float)):
+        return float(val)
+    if hasattr(val, "timestamp"):
+        try:
+            return float(val.timestamp())
+        except Exception:
+            pass
+    s = str(val).strip()
+    if not s:
+        return 0.0
+    try:
+        if s.endswith("Z"):
+            s = s[:-1] + "+00:00"
+        return datetime.fromisoformat(s).timestamp()
+    except Exception:
+        return 0.0
+
+
 def query_traces_for_user(
     user_id: str, limit: int = 50, offset: int = 0, status: str | None = None
 ) -> tuple[list[dict[str, Any]], int]:
-    q = db.collection("traces").where("user_id", "==", user_id).order_by(
-        "created_at", direction=firestore.Query.DESCENDING
-    )
-    docs = list(q.limit(2000).stream())
+    # Only filter by user_id — sort in memory. Firestore composite indexes are easy to miss
+    # and would make /v1/traces fail while /v1/stats (no order_by) still works.
+    q = db.collection("traces").where("user_id", "==", user_id).stream()
+    docs = list(q)
+    docs.sort(key=_firestore_created_ts, reverse=True)
+    docs = docs[:2000]
     rows = [_doc_to_dict(d) for d in docs]
 
     by_run: dict[str, list[dict[str, Any]]] = {}
     for r in rows:
-        rid = r.get("run_id") or ""
+        rid_raw = r.get("run_id")
+        if rid_raw is None or rid_raw == "":
+            rid = str(r.get("id") or "")
+        else:
+            rid = str(rid_raw).strip()
         by_run.setdefault(rid, []).append(r)
 
     runs_out: list[dict[str, Any]] = []
     for run_id, steps in by_run.items():
         steps.sort(key=lambda x: int(x.get("step_index") or 0))
-        st = steps[-1].get("created_at") or ""
+        last = steps[-1]
+        st = last.get("created_at")
         any_flag = any(s.get("status") == "flagged" for s in steps)
         runs_out.append(
             {
@@ -241,12 +282,12 @@ def query_traces_for_user(
                 "status": "flagged" if any_flag else "ok",
                 "steps": len(steps),
                 "latency_ms": int(sum(int(s.get("latency_ms") or 0) for s in steps)),
-                "created_at": st,
+                "created_at": _serialize_value(st) if st is not None else "",
                 "flags": [],
             }
         )
 
-    runs_out.sort(key=lambda x: x.get("created_at") or "", reverse=True)
+    runs_out.sort(key=lambda x: _sort_key_created_at_value(x.get("created_at")), reverse=True)
 
     all_run_ids = [r["run_id"] for r in runs_out]
     if all_run_ids:

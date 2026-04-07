@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { useLocation } from "wouter";
 import {
@@ -23,6 +23,7 @@ const staggerChild = {
 export default function Dashboard() {
   const [, navigate] = useLocation();
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [copied, setCopied] = useState(false);
   const hasKey = !!getStoredApiKey();
 
@@ -38,7 +39,18 @@ export default function Dashboard() {
     queryFn: () => fetchTraces({ limit: 8, offset: 0 }),
     enabled: hasKey,
     retry: 1,
+    // Stats can succeed while /v1/traces fails (e.g. Firestore index). Refetch traces when stats load.
+    refetchOnMount: "always",
   });
+
+  // Stats can load before /v1/traces returns runs (race) or traces cache can be stale after first trace.
+  useEffect(() => {
+    if (!hasKey || !statsQuery.isSuccess) return;
+    const total = statsQuery.data?.total_traces ?? 0;
+    if (total > 0) {
+      queryClient.invalidateQueries({ queryKey: ["traces", "recent"] });
+    }
+  }, [hasKey, statsQuery.isSuccess, statsQuery.data?.total_traces, queryClient]);
 
   const s = statsQuery.data;
   const stats = [
@@ -93,6 +105,13 @@ agentwatch.init(
       {hasKey && statsQuery.isError && (
         <div className="mb-6 p-4 rounded-xl border border-red-500/25 bg-red-500/5 text-red-300 text-sm">
           Could not reach API ({(statsQuery.error as Error)?.message}). Check VITE_API_URL and that the server is running.
+        </div>
+      )}
+
+      {hasKey && tracesQuery.isError && !tracesQuery.isLoading && (
+        <div className="mb-6 p-4 rounded-xl border border-amber-500/25 bg-amber-500/5 text-amber-200/90 text-sm">
+          Could not load recent runs ({(tracesQuery.error as Error)?.message}). Stats may still show totals; fix{" "}
+          <code className="text-white/70 font-mono">GET /v1/traces</code> (often a Firestore query/index issue on the API).
         </div>
       )}
 
@@ -217,7 +236,7 @@ agentwatch.init(
             <tbody>
               {recentRuns.map((run, i) => (
                 <motion.tr
-                  key={run.run_id}
+                  key={run.run_id ? `${run.run_id}-${i}` : `run-${i}`}
                   initial={{ opacity: 0, x: -10 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: 0.3 + i * 0.05 }}
@@ -234,7 +253,7 @@ agentwatch.init(
                   </td>
                   <td className="px-5 py-4">
                     <span className="font-mono text-xs text-white/50 group-hover:text-white/70 transition-colors">
-                      {run.run_id.slice(0, 14)}…
+                      {run.run_id ? `${String(run.run_id).slice(0, 14)}…` : "—"}
                     </span>
                   </td>
                   <td className="px-5 py-4">
