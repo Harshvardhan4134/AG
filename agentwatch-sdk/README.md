@@ -34,6 +34,9 @@ response = client.chat.completions.create(
     model="gpt-4o-mini",
     messages=[{"role": "user", "content": "Hello"}],
 )
+
+# For short-lived scripts/CLIs, flush before exit:
+agentwatch.flush(timeout_s=3.0)
 ```
 
 `init` alone does not trace calls — you must use `watch(client)` (or a patched default client) so requests go through the wrapper.

@@ -145,3 +145,14 @@ def watch(client: Any) -> Any:
         f"⚠ AgentWatch: Unknown client type '{name}'. Manual instrumentation required."
     )
     return client
+
+
+def flush(timeout_s: float = 3.0) -> bool:
+    """Flush any pending trace sends (best-effort).
+
+    Useful for short-lived scripts/CLIs where the process exits immediately
+    after an LLM call.
+    """
+    from .sender import flush as _flush
+
+    return _flush(timeout_s=timeout_s)
