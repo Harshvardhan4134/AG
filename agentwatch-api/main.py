@@ -101,6 +101,10 @@ class UserSettingsBody(BaseModel):
     display_name: Optional[str] = None
 
 
+class AnalyseRepoBody(BaseModel):
+    github_url: str
+
+
 def _minimal_user(user_id: str) -> dict[str, Any]:
     return {
         "user_id": user_id,
@@ -206,6 +210,23 @@ def remove_key(key_id: str, authorization: str | None = Header(None)) -> dict[st
     return {"ok": True}
 
 
+@app.post("/v1/analyse-repo")
+def analyse_repo(body: AnalyseRepoBody, authorization: str | None = Header(None)) -> dict[str, Any]:
+    """Planned: analyze a public GitHub repo and return wiring instructions.
+
+    MVP stub to reserve the route and define the contract shape.
+    """
+    _ = _firebase_uid_from_header(authorization)
+    raise HTTPException(
+        status_code=501,
+        detail={
+            "error": "not_implemented",
+            "message": "Repo analysis is not enabled on this deployment yet.",
+            "github_url": body.github_url,
+        },
+    )
+
+
 @app.post("/v1/trace")
 def post_trace(event: TraceEvent, authorization: str | None = Header(None)) -> Any:
     try:
@@ -229,8 +250,8 @@ def post_trace(event: TraceEvent, authorization: str | None = Header(None)) -> A
             "step_index": event.step_index,
             "step_type": event.step_type,
             "agent_name": event.agent_name,
-            "input": event.input,
-            "output": event.output,
+            "input": (event.input or "")[:2000],
+            "output": (event.output or "")[:2000],
             "model": event.model,
             "latency_ms": event.latency_ms,
             "tokens": event.tokens,

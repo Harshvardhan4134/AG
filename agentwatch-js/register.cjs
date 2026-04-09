@@ -24,6 +24,22 @@ let _state = {
   contentMode: (process.env.AGENTWATCH_CONTENT_MODE || "0") === "1",
 };
 
+let _pending = 0;
+let _pendingZeroResolve = null;
+function _incPending() {
+  _pending += 1;
+  _pendingZeroResolve = null;
+}
+function _decPending() {
+  _pending = Math.max(0, _pending - 1);
+  if (_pending === 0 && _pendingZeroResolve) {
+    try {
+      _pendingZeroResolve(true);
+    } catch (_) {}
+    _pendingZeroResolve = null;
+  }
+}
+
 function initFromEnv() {
   if (_state.initialized) return;
   const k = apiKey();
@@ -51,6 +67,7 @@ function postTrace(payload) {
     ...payload,
     deep_analysis_config: _state.deepConfig || {},
   });
+  _incPending();
   try {
     fetch(url, {
       method: "POST",
@@ -59,7 +76,9 @@ function postTrace(payload) {
         "Content-Type": "application/json",
       },
       body,
-    }).catch(() => {});
+    })
+      .catch(() => {})
+      .finally(() => _decPending());
   } catch (_) {
     // Node < 18 without fetch
     try {
@@ -74,6 +93,7 @@ function postTrace(payload) {
         () => {}
       );
       req.on("error", () => {});
+      req.on("close", () => _decPending());
       req.write(body);
       req.end();
     } catch (_) {}
@@ -181,4 +201,15 @@ function watch(client, provider) {
   return wrapChatCompletions(client, provider || "openai");
 }
 
-module.exports = { init, watch };
+function flush(opts) {
+  const timeoutMs = (opts && opts.timeoutMs) || 3000;
+  if (_pending === 0) return Promise.resolve(true);
+  return Promise.race([
+    new Promise((resolve) => {
+      _pendingZeroResolve = resolve;
+    }),
+    new Promise((resolve) => setTimeout(() => resolve(false), timeoutMs)),
+  ]);
+}
+
+module.exports = { init, watch, flush };

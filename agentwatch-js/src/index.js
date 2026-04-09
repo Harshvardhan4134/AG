@@ -7,6 +7,24 @@ let _state = {
   contentMode: false,
 };
 
+let _pending = 0;
+let _pendingZeroResolve = null;
+function _incPending() {
+  _pending += 1;
+  _pendingZeroResolve = null;
+}
+function _decPending() {
+  _pending = Math.max(0, _pending - 1);
+  if (_pending === 0 && _pendingZeroResolve) {
+    try {
+      _pendingZeroResolve(true);
+    } catch {
+      // ignore
+    }
+    _pendingZeroResolve = null;
+  }
+}
+
 export function init({
   apiKey,
   serverUrl,
@@ -44,19 +62,24 @@ async function _postTrace(payload) {
     Authorization: `Bearer ${_state.apiKey}`,
     "Content-Type": "application/json",
   };
+  _incPending();
   // Best-effort: 2 attempts
-  for (let attempt = 0; attempt < 2; attempt++) {
-    try {
-      const r = await fetch(url, {
-        method: "POST",
-        headers,
-        body: JSON.stringify(payload),
-      });
-      if (r.ok) return;
-    } catch {
-      // ignore
+  try {
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const r = await fetch(url, {
+          method: "POST",
+          headers,
+          body: JSON.stringify(payload),
+        });
+        if (r.ok) return;
+      } catch {
+        // ignore
+      }
+      if (attempt === 0) await new Promise((res) => setTimeout(res, 250));
     }
-    if (attempt === 0) await new Promise((res) => setTimeout(res, 250));
+  } finally {
+    _decPending();
   }
 }
 
@@ -120,5 +143,15 @@ export function watch(client, { provider = "openai" } = {}) {
   };
 
   return client;
+}
+
+export async function flush({ timeoutMs = 3000 } = {}) {
+  if (_pending === 0) return true;
+  return await Promise.race([
+    new Promise((resolve) => {
+      _pendingZeroResolve = resolve;
+    }),
+    new Promise((resolve) => setTimeout(() => resolve(false), timeoutMs)),
+  ]);
 }
 

@@ -14,6 +14,7 @@ import TraceDetail from "./pages/TraceDetail";
 import ApiKeys from "./pages/ApiKeys";
 import Alerts from "./pages/Alerts";
 import Settings from "./pages/Settings";
+import Help from "./pages/Help";
 import { Loader2 } from "lucide-react";
 import { ReactNode } from "react";
 
@@ -86,6 +87,13 @@ function Router() {
         {() => (
           <ProtectedRoute>
             <Settings />
+          </ProtectedRoute>
+        )}
+      </Route>
+      <Route path="/dashboard/help">
+        {() => (
+          <ProtectedRoute>
+            <Help />
           </ProtectedRoute>
         )}
       </Route>

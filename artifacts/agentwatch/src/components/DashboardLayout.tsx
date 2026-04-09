@@ -2,7 +2,7 @@ import { ReactNode, useEffect, useState } from "react";
 import { useLocation, useRoute } from "wouter";
 import { motion } from "framer-motion";
 import {
-  LayoutDashboard, Activity, Key, Bell, LogOut, Settings, ChevronRight, Zap, BookOpen
+  LayoutDashboard, Activity, Key, Bell, LogOut, Settings, ChevronRight, Zap, BookOpen, LifeBuoy
 } from "lucide-react";
 import { BrandLogo } from "./BrandLogo";
 import { useAuth } from "../lib/auth-context";
@@ -14,6 +14,7 @@ const navItems = [
   { icon: <Bell className="w-4 h-4" />,            label: "Alerts",    path: "/dashboard/alerts" },
   { icon: <Key className="w-4 h-4" />,             label: "API Keys",  path: "/dashboard/keys" },
   { icon: <Settings className="w-4 h-4" />,        label: "Settings",  path: "/dashboard/settings" },
+  { icon: <LifeBuoy className="w-4 h-4" />,        label: "Help",      path: "/dashboard/help" },
   { icon: <BookOpen className="w-4 h-4" />,        label: "Docs",      path: "/docs" },
 ];
 
